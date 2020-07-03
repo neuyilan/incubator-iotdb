@@ -178,7 +178,7 @@ public abstract class RaftServer implements RaftService.AsyncIface {
     socket = getServerSocket();
     Args poolArgs =
         new THsHaServer.Args(socket).maxWorkerThreads(config.getMaxConcurrentClientNum())
-            .minWorkerThreads(1);
+            .minWorkerThreads(Runtime.getRuntime().availableProcessors());
 
     poolArgs.executorService(new ThreadPoolExecutor(poolArgs.minWorkerThreads,
         poolArgs.maxWorkerThreads, poolArgs.getStopTimeoutVal(), poolArgs.getStopTimeoutUnit(),

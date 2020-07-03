@@ -25,8 +25,8 @@ import org.apache.iotdb.cluster.rpc.thrift.Node;
 
 /**
  * A node report collects the current runtime information of the local node, which contains:
- * 1. The MetaMemberReport of the meta member.
- * 2. The DataMemberReports of each data member.
+ * <p>
+ * 1. The MetaMemberReport of the meta member. 2. The DataMemberReports of each data member.
  */
 @SuppressWarnings("java:S107") // reports need enough parameters
 public class NodeReport {
@@ -119,10 +119,11 @@ public class NodeReport {
   }
 
   /**
-   * A DataMemberReport additionally contains the header, so it can be told which group this
-   * member belongs to.
+   * A DataMemberReport additionally contains the header, so it can be told which group this member
+   * belongs to.
    */
   public static class DataMemberReport extends RaftMemberReport {
+
     Node header;
     long headerLatency;
 
@@ -148,7 +149,7 @@ public class NodeReport {
           ", commitIndex=" + commitIndex +
           ", commitTerm=" + commitTerm +
           ", readOnly=" + isReadOnly +
-          ", headerLatency=" + headerLatency +
+          ", headerLatency=" + headerLatency + "ns" +
           ", lastHeartbeat=" + (System.currentTimeMillis() - lastHeartbeatReceivedTime) + "ms ago" +
           '}';
     }

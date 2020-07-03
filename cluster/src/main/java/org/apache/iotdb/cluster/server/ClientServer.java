@@ -141,7 +141,8 @@ public class ClientServer extends TSServiceImpl {
     // nonblocking server
     TThreadPoolServer.Args poolArgs =
         new TThreadPoolServer.Args(serverTransport).maxWorkerThreads(ClusterDescriptor
-            .getInstance().getConfig().getMaxConcurrentClientNum()).minWorkerThreads(1);
+            .getInstance().getConfig().getMaxConcurrentClientNum())
+            .minWorkerThreads(Runtime.getRuntime().availableProcessors());
     poolArgs.executorService(new ThreadPoolExecutor(poolArgs.minWorkerThreads,
         poolArgs.maxWorkerThreads, poolArgs.stopTimeoutVal, poolArgs.stopTimeoutUnit,
         new SynchronousQueue<>(), new ThreadFactory() {

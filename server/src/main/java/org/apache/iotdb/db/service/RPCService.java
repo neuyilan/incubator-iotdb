@@ -212,7 +212,8 @@ public class RPCService implements RPCServiceMBean, IService {
           logger.error("The RPC service port is not bound.");
         }
         poolArgs = new TThreadPoolServer.Args(serverTransport).maxWorkerThreads(IoTDBDescriptor.
-            getInstance().getConfig().getRpcMaxConcurrentClientNum()).minWorkerThreads(1)
+            getInstance().getConfig().getRpcMaxConcurrentClientNum())
+            .minWorkerThreads(Runtime.getRuntime().availableProcessors())
             .stopTimeoutVal(
                 IoTDBDescriptor.getInstance().getConfig().getThriftServerAwaitTimeForStopService());
         poolArgs.executorService = IoTDBThreadPoolFactory.createThriftRpcClientThreadPool(poolArgs,
