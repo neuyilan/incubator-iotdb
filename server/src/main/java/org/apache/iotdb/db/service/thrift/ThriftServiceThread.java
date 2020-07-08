@@ -66,7 +66,7 @@ public class ThriftServiceThread extends Thread{
       serverTransport = new TServerSocket(new InetSocketAddress(bindAddress, port));
       poolArgs = new TThreadPoolServer.Args(serverTransport)
           .maxWorkerThreads(maxWorkerThreads)
-          .minWorkerThreads(1)
+          .minWorkerThreads(Runtime.getRuntime().availableProcessors())
           .stopTimeoutVal(timeoutMs);
       poolArgs.executorService = IoTDBThreadPoolFactory.createThriftRpcClientThreadPool(poolArgs,
           threadsName);
