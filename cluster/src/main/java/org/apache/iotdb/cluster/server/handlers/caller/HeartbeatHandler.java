@@ -70,13 +70,13 @@ public class HeartbeatHandler implements AsyncMethodCallback<HeartBeatResponse> 
       if (!peer.isCatchUp() || !localMember.getLogManager()
           .isLogUpToDate(lastLogTerm, lastLogIdx)) {
         peer.setNextIndex(lastLogIdx + 1);
-        logger.debug("{}: catching up node {}, index-term: {}-{}/{}-{}, peer nextIndex {}, peer "
+        logger.debug("{}:add by qihouliang, no catching up node {}, index-term: {}-{}/{}-{}, peer nextIndex {}, peer "
                 + "match index {}",
             memberName, follower,
             lastLogIdx, lastLogTerm,
             localLastLogIdx, localLastLogTerm,
             peer.getNextIndex(), peer.getMatchIndex());
-        localMember.catchUp(follower);
+//        localMember.catchUp(follower);
       } else {
         peer.setMatchIndex(Math.max(peer.getMatchIndex(), lastLogIdx));
       }

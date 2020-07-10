@@ -113,14 +113,14 @@ public class HeartbeatThread implements Runnable {
    * Send each node (except the local node) in the group of the member a heartbeat.
    */
   private void sendHeartbeats() {
-    synchronized (localMember.getTerm()) {
+//    synchronized (localMember.getTerm()) {
       request.setTerm(localMember.getTerm().get());
       request.setLeader(localMember.getThisNode());
       request.setCommitLogIndex(localMember.getLogManager().getCommitLogIndex());
       request.setCommitLogTerm(localMember.getLogManager().getCommitLogTerm());
 
       sendHeartbeats(localMember.getAllNodes());
-    }
+//    }
   }
 
   /**
