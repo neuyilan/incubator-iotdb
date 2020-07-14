@@ -126,6 +126,8 @@ public class SerializeUtils {
       dataOutputStream.writeInt(node.metaPort);
       dataOutputStream.writeInt(node.nodeIdentifier);
       dataOutputStream.writeInt(node.dataPort);
+      dataOutputStream.writeInt(node.heartbeatMetaPort);
+      dataOutputStream.writeInt(node.heartbeatDataPort);
     } catch (IOException e) {
       // unreachable
     }
@@ -139,6 +141,8 @@ public class SerializeUtils {
     node.setMetaPort(buffer.getInt());
     node.setNodeIdentifier(buffer.getInt());
     node.setDataPort(buffer.getInt());
+    node.setHeartbeatMetaPort(buffer.getInt());
+    node.setHeartbeatDataPort(buffer.getInt());
   }
 
   public static void deserialize(Node node, DataInputStream stream) throws IOException {
@@ -154,6 +158,8 @@ public class SerializeUtils {
     node.setMetaPort(stream.readInt());
     node.setNodeIdentifier(stream.readInt());
     node.setDataPort(stream.readInt());
+    node.setHeartbeatMetaPort(stream.readInt());
+    node.setHeartbeatDataPort(stream.readInt());
   }
 
   public static void serializeBatchData(BatchData batchData, DataOutputStream outputStream) {
@@ -514,6 +520,6 @@ public class SerializeUtils {
     int metaPort = Integer.parseInt(str.substring(metaPortFirstPos, metaPortLastPos));
     int id = Integer.parseInt(str.substring(idFirstPos, idLastPos));
     int dataPort = Integer.parseInt(str.substring(dataPortFirstPos, dataPortLastPos));
-    return new Node(ip, metaPort, id, dataPort);
+    return new Node(ip, metaPort, id, dataPort,metaPort+1, dataPort+1);
   }
 }

@@ -113,6 +113,8 @@ struct Node {
   2: required int metaPort
   3: required int nodeIdentifier
   4: required int dataPort
+  5: required int heartbeatDataPort
+  6: required int heartbeatMetaPort
 }
 
 // leader -> follower

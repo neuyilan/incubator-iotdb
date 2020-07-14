@@ -426,6 +426,12 @@ public class DataClusterServer extends RaftServer implements TSDataService.Async
   }
 
   @Override
+  TNonblockingServerSocket getHeartbeatServerSocket() throws TTransportException {
+    return new TNonblockingServerSocket(new InetSocketAddress(config.getLocalIP(),
+        thisNode.getHeartbeatDataPort()), getConnectionTimeoutInMS());
+  }
+
+  @Override
   String getClientThreadPrefix() {
     return "DataClientThread-";
   }

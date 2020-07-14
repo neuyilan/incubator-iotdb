@@ -60,7 +60,8 @@ public class HardState {
     if (voteFor != null) {
       byte[] ipBytes = voteFor.getIp().getBytes();
       totalSize +=
-          Integer.BYTES + ipBytes.length + Integer.BYTES + Integer.BYTES + Integer.BYTES;
+          Integer.BYTES + ipBytes.length + Integer.BYTES + Integer.BYTES + Integer.BYTES
+              + Integer.BYTES + Integer.BYTES;
       byte[] buffer = new byte[totalSize];
       ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
       byteBuffer.putLong(currentTerm);
@@ -70,6 +71,8 @@ public class HardState {
       byteBuffer.putInt(voteFor.getMetaPort());
       byteBuffer.putInt(voteFor.getNodeIdentifier());
       byteBuffer.putInt(voteFor.getDataPort());
+      byteBuffer.putInt(voteFor.getHeartbeatMetaPort());
+      byteBuffer.putInt(voteFor.getHeartbeatDataPort());
       byteBuffer.flip();
       return byteBuffer;
     }

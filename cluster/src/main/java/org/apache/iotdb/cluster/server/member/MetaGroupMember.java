@@ -64,6 +64,7 @@ import org.apache.iotdb.cluster.ClusterFileFlushPolicy;
 import org.apache.iotdb.cluster.client.async.AsyncClientPool;
 import org.apache.iotdb.cluster.client.async.AsyncDataClient;
 import org.apache.iotdb.cluster.client.async.AsyncDataClient.FactoryAsync;
+import org.apache.iotdb.cluster.client.async.AsyncHeartbeatMetaClient;
 import org.apache.iotdb.cluster.client.async.AsyncMetaClient;
 import org.apache.iotdb.cluster.client.sync.SyncClientAdaptor;
 import org.apache.iotdb.cluster.config.ClusterConstant;
@@ -255,7 +256,8 @@ public class MetaGroupMember extends RaftMember {
   }
 
   public MetaGroupMember(TProtocolFactory factory, Node thisNode) throws QueryProcessException {
-    super("Meta", new AsyncClientPool(new AsyncMetaClient.FactoryAsync(factory)));
+    super("Meta", new AsyncClientPool(new AsyncMetaClient.FactoryAsync(factory)),
+        new AsyncClientPool(new AsyncHeartbeatMetaClient.FactoryAsync(factory)));
     allNodes = new ArrayList<>();
     initPeerMap();
 
@@ -398,12 +400,13 @@ public class MetaGroupMember extends RaftMember {
       result.setIp(ip);
       result.setMetaPort(metaPort);
       result.setDataPort(dataPort);
+      result.setHeartbeatMetaPort(metaPort + 1);
+      result.setHeartbeatDataPort(dataPort + 1);
     } catch (NumberFormatException e) {
       logger.warn("Bad seed url: {}", nodeUrl);
     }
     return result;
   }
-
 
 
   /**
@@ -691,7 +694,6 @@ public class MetaGroupMember extends RaftMember {
   }
 
 
-
   /**
    * @return Whether all nodes' identifier is known.
    */
@@ -720,7 +722,7 @@ public class MetaGroupMember extends RaftMember {
   /**
    * Process the join cluster request of "node". Only proceed when the partition table is ready.
    *
-   * @param node          cannot be the local node
+   * @param node cannot be the local node
    */
   public AddNodeResponse addNode(Node node, StartUpStatus startUpStatus)
       throws AddSelfException, LogExecutionException {
@@ -1430,7 +1432,7 @@ public class MetaGroupMember extends RaftMember {
               setStorageGroupResult.getCode(), storageGroupName)
       );
     }
-    if(plan instanceof InsertRowPlan){
+    if (plan instanceof InsertRowPlan) {
       // try to create timeseries
       boolean isAutoCreateTimeseriesSuccess = autoCreateTimeseries((InsertRowPlan) plan);
       if (!isAutoCreateTimeseriesSuccess) {
@@ -1822,7 +1824,8 @@ public class MetaGroupMember extends RaftMember {
       if (logger.isDebugEnabled()) {
         logger.debug("{}: Pulled {} timeseries schemas of {} and other {} paths from {} of {}",
             name,
-            schemas.size(), request.getPrefixPaths().get(0), request.getPrefixPaths().size() - 1, node,
+            schemas.size(), request.getPrefixPaths().get(0), request.getPrefixPaths().size() - 1,
+            node,
             request.getHeader());
       }
       results.addAll(schemas);
@@ -2652,16 +2655,16 @@ public class MetaGroupMember extends RaftMember {
   }
 
 
-
   /**
    * Process the request of removing a node from the cluster. Reject the request if partition table
    * is unavailable or the node is not the MetaLeader and it does not know who the leader is.
    * Otherwise (being the MetaLeader), the request will be processed locally and broadcast to every
    * node.
    *
-   * @param node          the node to be removed.
+   * @param node the node to be removed.
    */
-  public long removeNode(Node node) throws PartitionTableUnavailableException, LogExecutionException {
+  public long removeNode(Node node)
+      throws PartitionTableUnavailableException, LogExecutionException {
     if (partitionTable == null) {
       logger.info("Cannot add node now because the partition table is not set");
       throw new PartitionTableUnavailableException(thisNode);
@@ -2673,13 +2676,12 @@ public class MetaGroupMember extends RaftMember {
   }
 
 
-
   /**
    * Process a node removal request locally and broadcast it to the whole cluster. The removal will
    * be rejected if number of nodes will fall below half of the replication number after this
    * operation.
    *
-   * @param node          the node to be removed.
+   * @param node the node to be removed.
    * @return Long.MIN_VALUE if further forwarding is required, or the execution result
    */
   private long processRemoveNodeLocally(Node node)

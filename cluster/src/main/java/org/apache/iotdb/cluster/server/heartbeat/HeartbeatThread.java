@@ -148,7 +148,7 @@ public class HeartbeatThread implements Runnable {
           return;
         }
 
-        AsyncClient client = localMember.getAsyncClient(node);
+        AsyncClient client = localMember.getHeartAsyncClient(node);
         if (client != null) {
           // connecting to the local node results in a null
           sendHeartbeat(node, client);
@@ -278,7 +278,7 @@ public class HeartbeatThread implements Runnable {
           continue;
         }
 
-        AsyncClient client = localMember.getAsyncClient(node);
+        AsyncClient client = localMember.getHeartAsyncClient(node);
         if (client != null) {
           logger.info("{}: Requesting a vote from {}", memberName, node);
           ElectionHandler handler = new ElectionHandler(localMember, node, nextTerm, quorum,

@@ -63,6 +63,8 @@ public class AddNodeLog extends Log {
     byteBuffer.putInt(newNode.getMetaPort());
     byteBuffer.putInt(newNode.getNodeIdentifier());
     byteBuffer.putInt(newNode.getDataPort());
+    byteBuffer.putInt(newNode.getHeartbeatMetaPort());
+    byteBuffer.putInt(newNode.getHeartbeatDataPort());
 
     byteBuffer.flip();
     return byteBuffer;

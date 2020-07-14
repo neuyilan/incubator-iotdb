@@ -19,17 +19,19 @@
 
 package org.apache.iotdb.cluster.server;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeUnit;
 import org.apache.iotdb.cluster.config.ClusterConfig;
 import org.apache.iotdb.cluster.config.ClusterDescriptor;
 import org.apache.iotdb.cluster.rpc.thrift.Node;
 import org.apache.iotdb.cluster.rpc.thrift.RaftService;
 import org.apache.iotdb.cluster.rpc.thrift.RaftService.AsyncProcessor;
+import org.apache.iotdb.cluster.utils.CallQueue;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.exception.StartupException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -62,21 +64,33 @@ public abstract class RaftServer implements RaftService.AsyncIface {
   ClusterConfig config = ClusterDescriptor.getInstance().getConfig();
   // the socket poolServer will listen to
   private TNonblockingServerTransport socket;
+  private TNonblockingServerTransport heartbeatSocket;
   // RPC processing server
   private TServer poolServer;
+
+  private TServer heartbeatPoolServer;
   Node thisNode;
 
   TProtocolFactory protocolFactory = config.isRpcThriftCompressionEnabled() ?
       new TCompactProtocol.Factory() : new TBinaryProtocol.Factory();
 
+  TProtocolFactory heartbeatProtocolFactory = config.isRpcThriftCompressionEnabled() ?
+      new TCompactProtocol.Factory() : new TBinaryProtocol.Factory();
+
   // this thread pool is to run the thrift server (poolServer above)
   private ExecutorService clientService;
+
+  // this thread pool is to run the thrift server (poolServer above)
+  private ExecutorService heartbeatClientService;
 
   RaftServer() {
     thisNode = new Node();
     thisNode.setIp(config.getLocalIP());
     thisNode.setMetaPort(config.getLocalMetaPort());
     thisNode.setDataPort(config.getLocalDataPort());
+    thisNode.setHeartbeatDataPort(config.getLocalDataPort() + 1);
+    thisNode.setHeartbeatMetaPort(config.getLocalMetaPort() + 1);
+
   }
 
   RaftServer(Node thisNode) {
@@ -124,6 +138,8 @@ public abstract class RaftServer implements RaftService.AsyncIface {
     }
 
     establishServer();
+
+    establishHeartbeatServer();
   }
 
   /**
@@ -155,6 +171,8 @@ public abstract class RaftServer implements RaftService.AsyncIface {
    */
   abstract TNonblockingServerSocket getServerSocket() throws TTransportException;
 
+  abstract TNonblockingServerSocket getHeartbeatServerSocket() throws TTransportException;
+
   /**
    * Each thrift RPC request will be processed in a separate thread and this will return the name
    * prefix of such threads. This is used to fast distinguish DataServer and MetaServer in the logs
@@ -180,16 +198,21 @@ public abstract class RaftServer implements RaftService.AsyncIface {
         new THsHaServer.Args(socket).maxWorkerThreads(config.getMaxConcurrentClientNum())
             .minWorkerThreads(Runtime.getRuntime().availableProcessors());
 
-    poolArgs.executorService(new ThreadPoolExecutor(poolArgs.minWorkerThreads,
-        poolArgs.maxWorkerThreads, poolArgs.getStopTimeoutVal(), poolArgs.getStopTimeoutUnit(),
-        new SynchronousQueue<>(), new ThreadFactory() {
-      private AtomicLong threadIndex = new AtomicLong(0);
+//    poolArgs.executorService(new ThreadPoolExecutor(poolArgs.minWorkerThreads,
+//        poolArgs.maxWorkerThreads, poolArgs.getStopTimeoutVal(), poolArgs.getStopTimeoutUnit(),
+//        new SynchronousQueue<>(), new ThreadFactory() {
+//      private AtomicLong threadIndex = new AtomicLong(0);
+//
+//      @Override
+//      public Thread newThread(Runnable r) {
+//        return new Thread(r, getClientThreadPrefix() + threadIndex.incrementAndGet());
+//      }
+//    }));
 
-      @Override
-      public Thread newThread(Runnable r) {
-        return new Thread(r, getClientThreadPrefix() + threadIndex.incrementAndGet());
-      }
-    }));
+    CallQueue callQueue = new CallQueue(new LinkedBlockingQueue<>(1000));
+    ExecutorService executorService = createExecutor(
+        callQueue, poolArgs.minWorkerThreads, poolArgs.maxWorkerThreads);
+    poolArgs.executorService(executorService);
     poolArgs.processor(getProcessor());
     poolArgs.protocolFactory(protocolFactory);
     // async service requires FramedTransport
@@ -203,5 +226,56 @@ public abstract class RaftServer implements RaftService.AsyncIface {
     clientService.submit(() -> poolServer.serve());
 
     logger.info("Cluster node {} is up", thisNode);
+  }
+
+  private ExecutorService createExecutor(BlockingQueue<Runnable> callQueue,
+      int minWorkers, int maxWorkers) {
+    ThreadFactoryBuilder tfb = new ThreadFactoryBuilder();
+    tfb.setDaemon(true);
+    tfb.setNameFormat("thrift-worker-%d");
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(minWorkers, maxWorkers,
+        Long.MAX_VALUE, TimeUnit.SECONDS, callQueue, tfb.build());
+    threadPool.allowCoreThreadTimeOut(true);
+    return threadPool;
+  }
+
+  private void establishHeartbeatServer() throws TTransportException {
+    logger.info("heartbeat cluster node {} begins to set up", thisNode);
+
+    heartbeatSocket = getHeartbeatServerSocket();
+    Args poolArgs =
+        new THsHaServer.Args(heartbeatSocket).maxWorkerThreads(config.getMaxConcurrentClientNum())
+            .minWorkerThreads(Runtime.getRuntime().availableProcessors());
+
+//    poolArgs.executorService(new ThreadPoolExecutor(poolArgs.minWorkerThreads,
+//        poolArgs.maxWorkerThreads, poolArgs.getStopTimeoutVal(), poolArgs.getStopTimeoutUnit(),
+//        new SynchronousQueue<>(), new ThreadFactory() {
+//      private AtomicLong threadIndex = new AtomicLong(0);
+//
+//      @Override
+//      public Thread newThread(Runnable r) {
+//        return new Thread(r, getClientThreadPrefix() + threadIndex.incrementAndGet());
+//      }
+//    }));
+
+    CallQueue callQueue = new CallQueue(new LinkedBlockingQueue<>(1000));
+    ExecutorService executorService = createExecutor(
+        callQueue, poolArgs.minWorkerThreads, poolArgs.maxWorkerThreads);
+    poolArgs.executorService(executorService);
+
+    poolArgs.processor(getProcessor());
+    poolArgs.protocolFactory(heartbeatProtocolFactory);
+    // async service requires FramedTransport
+    poolArgs.transportFactory(new TFastFramedTransport.Factory(
+        IoTDBDescriptor.getInstance().getConfig().getThriftInitBufferSize(),
+        IoTDBDescriptor.getInstance().getConfig().getThriftMaxFrameSize()));
+
+    // run the thrift server in a separate thread so that the main thread is not blocked
+    heartbeatPoolServer = new THsHaServer(poolArgs);
+
+    heartbeatClientService = Executors.newSingleThreadExecutor(r -> new Thread(r, getServerClientName()));
+    heartbeatClientService.submit(() -> heartbeatPoolServer.serve());
+
+    logger.info("establishHeartbeatServer Cluster node {} is up", thisNode);
   }
 }

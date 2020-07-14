@@ -114,7 +114,7 @@ if [ "${version_arr[0]}" = "1" ] ; then
   IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Xloggc:${IOTDB_HOME}/gc.log -XX:+PrintGCDateStamps -XX:+PrintGCDetails"
 else
   MAJOR_VERSION=${version_arr[0]}
-  IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Xloggc:${IOTDB_HOME}/gc.log"
+  IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Xloggc:${IOTDB_HOME}/gc.log -XX:+PrintGCDateStamps -XX:+PrintGCDetails"
 fi
 
 
@@ -131,16 +131,20 @@ JMX_LOCAL=no
 JMX_PORT="31999"
 
 if [ "JMX_LOCAL" = "yes" ]; then
-	IOTDB_JMX_OPTS="-Diotdb.jmx.local.port=$JMX_PORT"
+	IOTDB_JMX_OPTS="-Diotdb.jmx.local.port=$JMX_PORT $IOTDB_JMX_OPTS"
 	IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
 else
-	IOTDB_JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false  -Dcom.sun.management.jmxremote.ssl=false"
+	IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false  -Dcom.sun.management.jmxremote.ssl=false"
 	IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Dcom.sun.management.jmxremote.port=$JMX_PORT "
 fi
 
 
 IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Xms${HEAP_NEWSIZE}"
 IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -Xmx${MAX_HEAP_SIZE}"
+IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -XX:+UseG1GC -XX:MaxGCPauseMillis=5000"
+
+#IOTDB_JMX_OPTS="$IOTDB_JMX_OPTS -XX:MetaspaceSize=256m -XX:InitialBootClassLoaderMetaspaceSize=32M -XX:MaxGCPauseMillis=10000 -XX:SurvivorRatio=8 "
+
 
 echo "Maximum memory allocation pool = ${MAX_HEAP_SIZE}B, initial memory allocation pool = ${HEAP_NEWSIZE}B"
 echo "If you want to change this configuration, please check conf/iotdb-env.sh(Unix or OS X, if you use Windows, check conf/iotdb-env.bat)."

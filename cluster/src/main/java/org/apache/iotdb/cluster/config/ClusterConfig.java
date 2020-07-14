@@ -39,7 +39,7 @@ public class ClusterConfig {
 
   @ClusterConsistent
   private boolean isRpcThriftCompressionEnabled = false;
-  private int maxConcurrentClientNum = 1024;
+  private int maxConcurrentClientNum = 10000;
 
   @ClusterConsistent
   private int replicationNum = 2;

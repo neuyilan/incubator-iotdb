@@ -44,6 +44,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.iotdb.cluster.client.async.AsyncClientPool;
 import org.apache.iotdb.cluster.client.async.AsyncDataClient;
+import org.apache.iotdb.cluster.client.async.AsyncHeartbeatDataClient;
+import org.apache.iotdb.cluster.client.async.AsyncHeartbeatMetaClient;
 import org.apache.iotdb.cluster.client.async.AsyncMetaClient;
 import org.apache.iotdb.cluster.client.sync.SyncClientAdaptor;
 import org.apache.iotdb.cluster.config.ClusterConfig;
@@ -135,6 +137,8 @@ public abstract class RaftMember {
   // the pool that provides reusable clients to connect to other RaftMembers. It will be initialized
   // according to the implementation of the subclasses
   private AsyncClientPool asyncClientPool;
+
+  private AsyncClientPool heartBeatAsyncClientPool;
   // when the commit progress is updated by a heart beat, this object is notified so that we may
   // know if this node is synchronized with the leader
   private Object syncLock = new Object();
@@ -143,9 +147,10 @@ public abstract class RaftMember {
   public RaftMember() {
   }
 
-  RaftMember(String name, AsyncClientPool pool) {
+  RaftMember(String name, AsyncClientPool pool,AsyncClientPool heartbeatPool ) {
     this.name = name;
     this.asyncClientPool = pool;
+    this.heartBeatAsyncClientPool = heartbeatPool;
   }
 
   /**
@@ -662,11 +667,42 @@ public abstract class RaftMember {
     return client;
   }
 
+
+  /**
+   * Get an asynchronous thrift client to the given node.
+   *
+   * @param node
+   * @return an asynchronous thrift client or null if the caller tries to connect the local node.
+   */
+  public AsyncClient getHeartAsyncClient(Node node) {
+    if (node == null) {
+      return null;
+    }
+
+    AsyncClient client = null;
+    try {
+      do {
+        client = heartBeatAsyncClientPool.getClient(node);
+      } while (!isHeartbeatClientReady(client));
+    } catch (IOException e) {
+      logger.warn("{} heartbeart cannot connect to node {}", name, node, e);
+    }
+    return client;
+  }
+
   private boolean isClientReady(AsyncClient client) {
     if (client instanceof AsyncDataClient) {
       return ((AsyncDataClient) client).isReady();
     } else {
       return ((AsyncMetaClient) client).isReady();
+    }
+  }
+
+  private boolean isHeartbeatClientReady(AsyncClient client) {
+    if (client instanceof AsyncHeartbeatDataClient) {
+      return ((AsyncHeartbeatDataClient) client).isReady();
+    } else {
+      return ((AsyncHeartbeatMetaClient) client).isReady();
     }
   }
 
@@ -1167,7 +1203,7 @@ public abstract class RaftMember {
    * Tell the requester the current commit index if the local node is the leader of the group headed
    * by header. Or forward it to the leader. Otherwise report an error.
    *
-   * @param header        to determine the DataGroupMember in data groups
+   * @param header to determine the DataGroupMember in data groups
    * @return Long.MIN_VALUE if the node is not a leader, or the commitIndex
    */
   public long requestCommitIndex(Node header) {
@@ -1189,7 +1225,7 @@ public abstract class RaftMember {
   public ByteBuffer readFile(String filePath, long offset, int length) throws IOException {
     File file = new File(filePath);
     if (!file.exists()) {
-      return  ByteBuffer.allocate(0);
+      return ByteBuffer.allocate(0);
     }
 
     ByteBuffer result;

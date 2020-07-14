@@ -121,6 +121,12 @@ public class MetaClusterServer extends RaftServer implements TSMetaService.Async
   }
 
   @Override
+  TNonblockingServerSocket getHeartbeatServerSocket() throws TTransportException {
+    return new TNonblockingServerSocket(new InetSocketAddress(config.getLocalIP(),
+        config.getLocalMetaPort() + 1), getConnectionTimeoutInMS());
+  }
+
+  @Override
   String getClientThreadPrefix() {
     return "MetaClientThread-";
   }
