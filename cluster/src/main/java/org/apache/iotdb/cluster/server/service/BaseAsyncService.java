@@ -38,9 +38,12 @@ import org.apache.iotdb.cluster.utils.StatusUtils;
 import org.apache.iotdb.service.rpc.thrift.TSStatus;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class BaseAsyncService implements RaftService.AsyncIface {
 
+  private static final Logger logger = LoggerFactory.getLogger(BaseAsyncService.class);
   RaftMember member;
   String name;
 
@@ -52,6 +55,11 @@ public abstract class BaseAsyncService implements RaftService.AsyncIface {
   @Override
   public void sendHeartbeat(HeartBeatRequest request,
       AsyncMethodCallback<HeartBeatResponse> resultHandler) {
+    logger.info(
+        "add by qihouliang+ sendHeartbeat + the member={}+ name={}+ "
+            + "getCommitLogPool={}+ getHeartBeatService={}+ getAsyncThreadPool={}",
+        member, name, member.getCommitLogPool(), member.getHeartBeatService(),
+        member.getAsyncThreadPool());
     resultHandler.onComplete(member.sendHeartbeat(request));
   }
 

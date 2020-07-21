@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.iotdb.cluster.client.async.AsyncClientPool;
 import org.apache.iotdb.cluster.client.async.AsyncDataClient;
 import org.apache.iotdb.cluster.client.async.AsyncDataHeartbeatClient;
@@ -93,6 +94,7 @@ import org.apache.iotdb.db.exception.metadata.PathNotExistException;
 import org.apache.iotdb.db.exception.metadata.StorageGroupAlreadySetException;
 import org.apache.iotdb.db.exception.metadata.StorageGroupNotSetException;
 import org.apache.iotdb.db.qp.physical.PhysicalPlan;
+import org.apache.iotdb.db.utils.CommonUtils;
 import org.apache.iotdb.db.utils.TestOnly;
 import org.apache.iotdb.rpc.RpcUtils;
 import org.apache.iotdb.service.rpc.thrift.TSStatus;
@@ -165,6 +167,22 @@ public abstract class RaftMember {
   // a thread pool that is used to convert serial operations into paralleled ones
   private ExecutorService asyncThreadPool;
 
+  // the lock to synchronized with the stop() method and the heartbeat thread
+  private ReentrantReadWriteLock stopLock = new ReentrantReadWriteLock();
+
+  /**
+   * a thread pool that is used to do commit log task asynchronous in heartbeat
+   */
+  private ExecutorService commitLogPool;
+
+  public ExecutorService getCommitLogPool() {
+    return commitLogPool;
+  }
+
+  public ExecutorService getHeartBeatService() {
+    return heartBeatService;
+  }
+
   public RaftMember() {
   }
 
@@ -196,19 +214,28 @@ public abstract class RaftMember {
    * @throws TTransportException
    */
   public void start() {
-    if (heartBeatService != null) {
-      return;
-    }
+    synchronized (term) {
+      if (heartBeatService != null) {
+        return;
+      }
 
-    heartBeatService =
-        Executors.newSingleThreadScheduledExecutor(r -> new Thread(r,
-            name + "-HeartbeatThread@" + System.currentTimeMillis()));
-    catchUpService = Executors.newCachedThreadPool();
-    appendLogThreadPool = Executors.newCachedThreadPool();
-    asyncThreadPool = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), 100,
-        0L, TimeUnit.MILLISECONDS,
-        new LinkedBlockingQueue<>());
-    logger.info("{} started", name);
+      heartBeatService =
+          Executors.newSingleThreadScheduledExecutor(r -> new Thread(r,
+              name + "-HeartbeatThread@" + System.currentTimeMillis()));
+      catchUpService = Executors.newCachedThreadPool();
+
+      appendLogThreadPool = Executors.newCachedThreadPool();
+      asyncThreadPool = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), 100,
+          0L, TimeUnit.MILLISECONDS,
+          new LinkedBlockingQueue<>());
+
+      commitLogPool = new ThreadPoolExecutor(CommonUtils.getCpuCores(),
+          CommonUtils.getMaxExecutorPoolSize(),
+          0L, TimeUnit.MILLISECONDS,
+          new LinkedBlockingQueue<>());
+
+      logger.info("{} started", name);
+    }
   }
 
   public RaftLogManager getLogManager() {
@@ -222,36 +249,64 @@ public abstract class RaftMember {
    * @throws TTransportException
    */
   public void stop() {
-    closeLogManager();
-    if (heartBeatService == null) {
-      return;
-    }
-
-    heartBeatService.shutdownNow();
-    catchUpService.shutdownNow();
-    appendLogThreadPool.shutdownNow();
     try {
-      heartBeatService.awaitTermination(10, TimeUnit.SECONDS);
-      catchUpService.awaitTermination(10, TimeUnit.SECONDS);
-      appendLogThreadPool.awaitTermination(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      logger.error("Unexpected interruption when waiting for heartBeatService and catchUpService "
-          + "to end", e);
-    }
-    if (asyncThreadPool != null) {
-      asyncThreadPool.shutdownNow();
+      stopLock.writeLock().lock();
+
+      logger.info("add by qihouliang, try stop1, member={}, name={}", this, getName());
+      closeLogManager();
+      if (heartBeatService == null) {
+        return;
+      }
+      logger.info("add by qihouliang, try stop2, member={}, name={}", this, getName());
+
+      heartBeatService.shutdownNow();
+      logger.info("add by qihouliang, try stop3, member={}, name={}", this, getName());
+      catchUpService.shutdownNow();
+      logger.info("add by qihouliang, try stop4, member={}, name={}", this, getName());
+      appendLogThreadPool.shutdownNow();
+      logger.info("add by qihouliang, try stop5, member={}, name={}", this, getName());
       try {
-        asyncThreadPool.awaitTermination(10, TimeUnit.SECONDS);
+        heartBeatService.awaitTermination(10, TimeUnit.SECONDS);
+        catchUpService.awaitTermination(10, TimeUnit.SECONDS);
+        commitLogPool.awaitTermination(10, TimeUnit.SECONDS);
+        appendLogThreadPool.awaitTermination(10, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        logger.error("Unexpected interruption when waiting for asyncThreadPool to end", e);
+        logger.error("Unexpected interruption when waiting for heartBeatService and catchUpService "
+            + "to end", e);
       }
+      logger.info("add by qihouliang, try stop6, member={}, name={}", this, getName());
+      if (asyncThreadPool != null) {
+        asyncThreadPool.shutdownNow();
+        try {
+          asyncThreadPool.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          logger.error("Unexpected interruption when waiting for asyncThreadPool to end", e);
+        }
+      }
+      logger.info("add by qihouliang, try stop7, member={}, name={}", this, getName());
+
+      if (commitLogPool != null) {
+        commitLogPool.shutdownNow();
+        try {
+          commitLogPool.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          logger.error("Unexpected interruption when waiting for commitLogPool to end", e);
+        }
+      }
+      logger.info("add by qihouliang, try stop8, member={}, name={}", this, getName());
+
+      catchUpService = null;
+      commitLogPool = null;
+      heartBeatService = null;
+      appendLogThreadPool = null;
+      logger.info("add by qihouliang, try stop9, member={}, name={}", this, getName());
+      logger.info("{} heartbeats stopped, member={}", name, this);
+    } finally {
+      stopLock.writeLock().unlock();
     }
-    catchUpService = null;
-    heartBeatService = null;
-    appendLogThreadPool = null;
-    logger.info("{} heartbeats stopped", name);
   }
 
   /**
@@ -264,66 +319,79 @@ public abstract class RaftMember {
    */
   public HeartBeatResponse sendHeartbeat(HeartBeatRequest request) {
     logger.trace("{} received a heartbeat", name);
-    synchronized (term) {
-      long thisTerm = term.get();
-      long leaderTerm = request.getTerm();
-      HeartBeatResponse response = new HeartBeatResponse();
+    try {
+      stopLock.readLock().lock();
+      synchronized (term) {
+        long thisTerm = term.get();
+        long leaderTerm = request.getTerm();
+        HeartBeatResponse response = new HeartBeatResponse();
 
-      if (leaderTerm < thisTerm) {
-        // a leader with term lower than this node is invalid, send it the local term to inform this
-        response.setTerm(thisTerm);
-        if (logger.isTraceEnabled()) {
-          logger.trace("{} received a heartbeat from a stale leader {}", name, request.getLeader());
-        }
-      } else {
-
-        // interrupt election
-
-        stepDown(leaderTerm, true);
-        setLeader(request.getLeader());
-        if (character != NodeCharacter.FOLLOWER) {
-          term.notifyAll();
-        }
-
-        // the heartbeat comes from a valid leader, process it with the sub-class logic
-        processValidHeartbeatReq(request, response);
-
-        response.setTerm(Response.RESPONSE_AGREE);
-        // tell the leader who I am in case of catch-up
-        response.setFollower(thisNode);
-        synchronized (logManager) {
-          response.setLastLogIndex(logManager.getLastLogIndex());
-          response.setLastLogTerm(logManager.getLastLogTerm());
-
-          // The term of the last log needs to be the same with leader's term in order to preserve
-          // safety, otherwise it may come from an invalid leader and is not committed
-          if (logManager.maybeCommit(request.getCommitLogIndex(), request.getCommitLogTerm())) {
-            logger.debug("{}: Committing to {}-{}, localCommit: {}-{}, localLast: {}-{}", name,
-                request.getCommitLogIndex(),
-                request.getCommitLogTerm(), logManager.getCommitLogIndex(),
-                logManager.getCommitLogTerm(), logManager.getLastLogIndex(),
-                logManager.getLastLogTerm());
-            synchronized (syncLock) {
-              syncLock.notifyAll();
-            }
-          } else if (logManager.getCommitLogIndex() < request.getCommitLogIndex()) {
+        if (leaderTerm < thisTerm) {
+          // a leader with term lower than this node is invalid, send it the local term to inform this
+          response.setTerm(thisTerm);
+          if (logger.isTraceEnabled()) {
             logger
-                .info("{}: Inconsistent log found, leader: {}-{}, local: {}-{}, last: {}-{}", name,
-                    request.getCommitLogIndex(), request.getCommitLogTerm(),
-                    logManager.getCommitLogIndex(), logManager.getCommitLogTerm(),
-                    logManager.getLastLogIndex(), logManager.getLastLogTerm());
+                .trace("{} received a heartbeat from a stale leader {}", name, request.getLeader());
+          }
+        } else {
+
+          // interrupt election
+
+          stepDown(leaderTerm, true);
+//        setLeader(request.getLeader());
+          if (character != NodeCharacter.FOLLOWER) {
+            term.notifyAll();
           }
 
-        }
-        // if the log is not consistent, the commitment will be blocked until the leader makes the
-        // node catch up
+          // the heartbeat comes from a valid leader, process it with the sub-class logic
+          processValidHeartbeatReq(request, response);
 
-        if (logger.isTraceEnabled()) {
-          logger.trace("{} received heartbeat from a valid leader {}", name, request.getLeader());
+          response.setTerm(Response.RESPONSE_AGREE);
+          // tell the leader who I am in case of catch-up
+          response.setFollower(thisNode);
+          synchronized (logManager) {
+            response.setLastLogIndex(logManager.getLastLogIndex());
+            response.setLastLogTerm(logManager.getLastLogTerm());
+
+            logger.info("add by qihouliang, start come in the sync method");
+            // The term of the last log needs to be the same with leader's term in order to preserve
+            // safety, otherwise it may come from an invalid leader and is not committed
+
+
+            boolean success = logManager.maybeCommit(request.getCommitLogIndex(), request.getCommitLogTerm());
+//
+//            CommitLogTask commitLogTask = new CommitLogTask(logManager, request.getCommitLogIndex(),
+//                request.getCommitLogTerm());
+//            OnCommitLogEventListener mListener = new AsyncCommitLogEvent();
+//            commitLogTask.registerOnGeekEventListener(mListener);
+//            logger.info(
+//                "add by qihouliang,name={},member={}, the commitLogPool={}, asyncThreadPool={}, heartBeatService={}",
+//                getName(), this, commitLogPool, asyncThreadPool, heartBeatService);
+//            commitLogPool.submit(commitLogTask);
+
+            logger.info("add by qihouliang, after come in the sync method");
+            if (logManager.getCommitLogIndex() < request.getCommitLogIndex()) {
+              logger
+                  .info("{}: Inconsistent log found, leader: {}-{}, local: {}-{}, last: {}-{}",
+                      name,
+                      request.getCommitLogIndex(), request.getCommitLogTerm(),
+                      logManager.getCommitLogIndex(), logManager.getCommitLogTerm(),
+                      logManager.getLastLogIndex(), logManager.getLastLogTerm());
+            }
+
+          }
+          // if the log is not consistent, the commitment will be blocked until the leader makes the
+          // node catch up
+          if (logger.isTraceEnabled()) {
+            logger.trace("{} received heartbeat from a valid leader {}", name, request.getLeader());
+          }
         }
+        return response;
       }
-      return response;
+    } finally {
+      stopLock.readLock().unlock();
     }
+
   }
 
   /**
@@ -1562,6 +1630,40 @@ public abstract class RaftMember {
   }
 
   public ExecutorService getAsyncThreadPool() {
-    return asyncThreadPool;
+    try {
+      stopLock.readLock().lock();
+      return asyncThreadPool;
+    } finally {
+      stopLock.readLock().unlock();
+    }
   }
+
+  public interface OnCommitLogEventListener {
+
+    /**
+     * the callback method when committed log async success
+     */
+    void onSuccess();
+
+    /**
+     * @param e the exception raised when committed log async failed
+     */
+    void onError(Exception e);
+  }
+
+  public class AsyncCommitLogEvent implements OnCommitLogEventListener {
+
+    @Override
+    public void onSuccess() {
+      synchronized (syncLock) {
+        syncLock.notifyAll();
+      }
+    }
+
+    @Override
+    public void onError(Exception e) {
+      logger.error("async commit log failed, {}", e.toString());
+    }
+  }
+
 }
