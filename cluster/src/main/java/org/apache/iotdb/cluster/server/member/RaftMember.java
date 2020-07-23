@@ -86,6 +86,7 @@ import org.apache.iotdb.cluster.server.RaftServer;
 import org.apache.iotdb.cluster.server.Response;
 import org.apache.iotdb.cluster.server.handlers.caller.AppendNodeEntryHandler;
 import org.apache.iotdb.cluster.server.handlers.caller.GenericHandler;
+import org.apache.iotdb.cluster.utils.ReentrantLockClass;
 import org.apache.iotdb.cluster.utils.StatusUtils;
 import org.apache.iotdb.db.exception.BatchInsertionException;
 import org.apache.iotdb.db.exception.IoTDBException;
@@ -131,6 +132,13 @@ public abstract class RaftMember {
   // the current term of the node, this object also works as lock of some transactions of the
   // member like elections
   AtomicLong term = new AtomicLong(0);
+
+  ReentrantLockClass reentrantLockClass = new ReentrantLockClass();
+
+  public ReentrantLockClass getReentrantLockClass() {
+    return reentrantLockClass;
+  }
+
   volatile NodeCharacter character = NodeCharacter.ELECTOR;
   volatile Node leader;
   volatile Node voteFor;
@@ -283,11 +291,15 @@ public abstract class RaftMember {
    */
   public HeartBeatResponse sendHeartbeat(HeartBeatRequest request) {
     logger.trace("{} received a heartbeat", name);
+    logger.info("add by qihouliang, name={}, owners={}", name, reentrantLockClass.owner());
     synchronized (term) {
+      logger.info("add by qihouliang,111, name={}, owners={}", name, reentrantLockClass.owner());
+      reentrantLockClass.lock();
+      logger.info("add by qihouliang,222, name={}, owners={}", name, reentrantLockClass.owner());
       long thisTerm = term.get();
       long leaderTerm = request.getTerm();
       HeartBeatResponse response = new HeartBeatResponse();
-
+      logger.info("add by qihouliang,333, name={}, owners={}", name, reentrantLockClass.owner());
       if (leaderTerm < thisTerm) {
         // a leader with term lower than this node is invalid, send it the local term to inform this
         response.setTerm(thisTerm);
@@ -296,17 +308,21 @@ public abstract class RaftMember {
         }
       } else {
 
+        logger.info("add by qihouliang,444, name={}, owners={}", name, reentrantLockClass.owner());
         // interrupt election
 
         stepDown(leaderTerm, true);
+        logger.info("add by qihouliang,555, name={}, owners={}", name, reentrantLockClass.owner());
         setLeader(request.getLeader());
         if (character != NodeCharacter.FOLLOWER) {
           term.notifyAll();
         }
 
+        logger.info("add by qihouliang,666, name={}, owners={}", name, reentrantLockClass.owner());
         // the heartbeat comes from a valid leader, process it with the sub-class logic
         processValidHeartbeatReq(request, response);
 
+        logger.info("add by qihouliang,777, name={}, owners={}", name, reentrantLockClass.owner());
         response.setTerm(Response.RESPONSE_AGREE);
         // tell the leader who I am in case of catch-up
         response.setFollower(thisNode);
@@ -316,6 +332,7 @@ public abstract class RaftMember {
           response.setLastLogTerm(logManager.getLastLogTerm());
         }
 
+        logger.info("add by qihouliang,888, name={}, owners={}", name, reentrantLockClass.owner());
         if (logManager.getCommitLogIndex() < request.getCommitLogIndex()) {
           CommitLogTask commitLogTask = new CommitLogTask(logManager, request.getCommitLogIndex(),
               request.getCommitLogTerm());
@@ -329,6 +346,7 @@ public abstract class RaftMember {
                   logManager.getCommitLogIndex(), logManager.getCommitLogTerm(),
                   logManager.getLastLogIndex(), logManager.getLastLogTerm());
         }
+        logger.info("add by qihouliang,999, name={}, owners={}", name, reentrantLockClass.owner());
         // if the log is not consistent, the commitment will be blocked until the leader makes the
         // node catch up
 
@@ -336,6 +354,8 @@ public abstract class RaftMember {
           logger.trace("{} received heartbeat from a valid leader {}", name, request.getLeader());
         }
       }
+      reentrantLockClass.unlock();
+      logger.info("add by qihouliang,000, name={}, owners={}", name, reentrantLockClass.owner());
       return response;
     }
   }
@@ -348,6 +368,7 @@ public abstract class RaftMember {
    */
   public long startElection(ElectionRequest electionRequest) {
     synchronized (term) {
+      reentrantLockClass.lock();
       long currentTerm = term.get();
       if (electionRequest.getTerm() < currentTerm) {
         logger.info("{} sending localTerm {} to the elector {} because it's term {} is smaller.",
@@ -376,6 +397,7 @@ public abstract class RaftMember {
       long response = processElectionRequest(electionRequest);
       logger.info("{} sending response {} to the elector {}", name, response,
           electionRequest.getElector());
+      reentrantLockClass.unlock();
       return response;
     }
   }
@@ -392,6 +414,7 @@ public abstract class RaftMember {
     long localTerm;
 
     synchronized (term) {
+      reentrantLockClass.lock();
       // if the request comes before the heartbeat arrives, the local term may be smaller than the
       // leader term
       localTerm = term.get();
@@ -410,6 +433,7 @@ public abstract class RaftMember {
           term.notifyAll();
         }
       }
+      reentrantLockClass.unlock();
     }
     logger.debug("{} accepted the AppendEntryRequest for term: {}", name, localTerm);
     return Response.RESPONSE_AGREE;
@@ -533,6 +557,7 @@ public abstract class RaftMember {
     long localTerm;
 
     synchronized (term) {
+      reentrantLockClass.lock();
       // if the request comes before the heartbeat arrives, the local term may be smaller than the
       // leader term
       localTerm = term.get();
@@ -551,6 +576,7 @@ public abstract class RaftMember {
           term.notifyAll();
         }
       }
+      reentrantLockClass.unlock();
     }
     logger.debug("{} accepted the AppendEntryRequest for term: {}", name, localTerm);
     return Response.RESPONSE_AGREE;
@@ -981,6 +1007,7 @@ public abstract class RaftMember {
    */
   public void stepDown(long newTerm, boolean fromLeader) {
     synchronized (term) {
+      reentrantLockClass.lock();
       long currTerm = term.get();
       // confirm that the heartbeat of the new leader hasn't come
       if (currTerm < newTerm) {
@@ -997,6 +1024,7 @@ public abstract class RaftMember {
         setCharacter(NodeCharacter.FOLLOWER);
         lastHeartbeatReceivedTime = System.currentTimeMillis();
       }
+      reentrantLockClass.unlock();
     }
   }
 

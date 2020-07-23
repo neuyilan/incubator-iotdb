@@ -310,12 +310,14 @@ public class DataGroupMember extends RaftMember {
     // taking the leadership, which guarantees the valid leader will not have the stale
     // partition table
     synchronized (term) {
+      reentrantLockClass.lock();
       term.incrementAndGet();
       setLeader(null);
       setVoteFor(thisNode);
       updateHardState(term.get(), getVoteFor());
       setLastHeartbeatReceivedTime(System.currentTimeMillis());
       setCharacter(NodeCharacter.ELECTOR);
+      reentrantLockClass.unlock();
     }
 
     // mark slots that do not belong to this group any more
@@ -1450,8 +1452,10 @@ public class DataGroupMember extends RaftMember {
         if (removedNode.equals(leader)) {
           // if the leader is removed, also start an election immediately
           synchronized (term) {
+            reentrantLockClass.lock();
             setCharacter(NodeCharacter.ELECTOR);
             setLastHeartbeatReceivedTime(Long.MIN_VALUE);
+            reentrantLockClass.unlock();
           }
         }
       }

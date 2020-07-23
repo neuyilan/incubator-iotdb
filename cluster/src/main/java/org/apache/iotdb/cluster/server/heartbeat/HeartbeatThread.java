@@ -119,12 +119,14 @@ public class HeartbeatThread implements Runnable {
    */
   private void sendHeartbeats() {
     synchronized (localMember.getTerm()) {
+      localMember.getReentrantLockClass().lock();
       request.setTerm(localMember.getTerm().get());
       request.setLeader(localMember.getThisNode());
       request.setCommitLogIndex(localMember.getLogManager().getCommitLogIndex());
       request.setCommitLogTerm(localMember.getLogManager().getCommitLogTerm());
 
       sendHeartbeats(localMember.getAllNodes());
+      localMember.getReentrantLockClass().unlock();
     }
   }
 
@@ -252,6 +254,7 @@ public class HeartbeatThread implements Runnable {
   // enable timeout
   void startElection() {
     synchronized (localMember.getTerm()) {
+      localMember.getReentrantLockClass().lock();
       long nextTerm = localMember.getTerm().incrementAndGet();
       localMember.setVoteFor(localMember.getThisNode());
       localMember.updateHardState(nextTerm, this.localMember.getVoteFor());
@@ -297,6 +300,7 @@ public class HeartbeatThread implements Runnable {
         localMember.setCharacter(NodeCharacter.LEADER);
         localMember.setLeader(localMember.getThisNode());
       }
+      localMember.getReentrantLockClass().unlock();
     }
   }
 

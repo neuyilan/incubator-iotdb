@@ -83,12 +83,14 @@ public class HeartbeatHandler implements AsyncMethodCallback<HeartBeatResponse> 
     } else {
       // current leadership is invalid because the follower has a larger term
       synchronized (localMember.getTerm()) {
+        localMember.getReentrantLockClass().lock();
         long currTerm = localMember.getTerm().get();
         if (currTerm < followerTerm) {
           logger.info("{}: Losing leadership because current term {} is smaller than {}",
               memberName, currTerm, followerTerm);
           localMember.stepDown(followerTerm, false);
         }
+        localMember.getReentrantLockClass().unlock();
       }
     }
   }

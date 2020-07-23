@@ -116,10 +116,12 @@ public class CatchUpTask implements Runnable {
     boolean isLogDebug = logger.isDebugEnabled();
     Log log = logs.get(index);
     synchronized (raftMember.getTerm()) {
+      raftMember.getReentrantLockClass().lock();
       // make sure this node is still a leader
       if (raftMember.getCharacter() != NodeCharacter.LEADER) {
         throw new LeaderUnknownException(raftMember.getAllNodes());
       }
+      raftMember.getReentrantLockClass().unlock();
     }
     long prevLogTerm = -1;
     try {

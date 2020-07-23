@@ -57,7 +57,6 @@ public class SnapshotCatchUpTask extends LogCatchUpTask implements Callable<Bool
   private void doSnapshotCatchUp()
       throws TException, InterruptedException, LeaderUnknownException {
 
-
     SendSnapshotRequest request = new SendSnapshotRequest();
     if (raftMember.getHeader() != null) {
       request.setHeader(raftMember.getHeader());
@@ -65,10 +64,12 @@ public class SnapshotCatchUpTask extends LogCatchUpTask implements Callable<Bool
     request.setSnapshotBytes(snapshot.serialize());
 
     synchronized (raftMember.getTerm()) {
+      raftMember.getReentrantLockClass().lock();
       // make sure this node is still a leader
       if (raftMember.getCharacter() != NodeCharacter.LEADER) {
         throw new LeaderUnknownException(raftMember.getAllNodes());
       }
+      raftMember.getReentrantLockClass().unlock();
     }
 
     if (ClusterDescriptor.getInstance().getConfig().isUseAsyncServer()) {

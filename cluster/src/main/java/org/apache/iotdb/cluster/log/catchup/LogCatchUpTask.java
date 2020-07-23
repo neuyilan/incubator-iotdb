@@ -89,11 +89,13 @@ public class LogCatchUpTask implements Callable<Boolean> {
     for (int i = 0; i < logs.size() && !abort; i++) {
       Log log = logs.get(i);
       synchronized (raftMember.getTerm()) {
+        raftMember.getReentrantLockClass().lock();
         // make sure this node is still a leader
         if (raftMember.getCharacter() != NodeCharacter.LEADER) {
           throw new LeaderUnknownException(raftMember.getAllNodes());
         }
         request.setTerm(raftMember.getTerm().get());
+        raftMember.getReentrantLockClass().unlock();
       }
       request.setPrevLogIndex(log.getCurrLogIndex() - 1);
       if (i == 0) {
@@ -184,6 +186,7 @@ public class LogCatchUpTask implements Callable<Boolean> {
         logList.add(logs.get(j).serialize());
       }
       synchronized (raftMember.getTerm()) {
+        raftMember.getReentrantLockClass().lock();
         // make sure this node is still a leader
         if (raftMember.getCharacter() != NodeCharacter.LEADER) {
           logger.debug("Leadership is lost when doing a catch-up to {}, aborting", node);
@@ -191,6 +194,7 @@ public class LogCatchUpTask implements Callable<Boolean> {
           break;
         }
         request.setTerm(raftMember.getTerm().get());
+        raftMember.getReentrantLockClass().unlock();
       }
 
       request.setEntries(logList);

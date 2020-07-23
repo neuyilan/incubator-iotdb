@@ -49,7 +49,8 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
   private AtomicBoolean electionValid;
   private AtomicInteger failingVoteCounter;
 
-  public ElectionHandler(RaftMember raftMember, Node voter, long currTerm, AtomicInteger requiredVoteNum,
+  public ElectionHandler(RaftMember raftMember, Node voter, long currTerm,
+      AtomicInteger requiredVoteNum,
       AtomicBoolean terminated, AtomicBoolean electionValid, AtomicInteger falingVoteCounter) {
     this.raftMember = raftMember;
     this.voter = voter;
@@ -65,6 +66,7 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
   public void onComplete(Long resp) {
     long voterResp = resp;
     synchronized (raftMember.getTerm()) {
+      raftMember.getReentrantLockClass().lock();
       if (terminated.get()) {
         // a voter has rejected this election, which means the term or the log id falls behind
         // this node is not able to be the leader
@@ -102,6 +104,7 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
           raftMember.getTerm().notifyAll();
         }
       }
+      raftMember.getReentrantLockClass().unlock();
     }
   }
 
@@ -119,8 +122,10 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
     int failingVoteRemaining = failingVoteCounter.decrementAndGet();
     if (failingVoteRemaining <= 0) {
       synchronized (raftMember.getTerm()) {
+        raftMember.getReentrantLockClass().lock();
         // wake up heartbeat thread to start the next election
         raftMember.getTerm().notifyAll();
+        raftMember.getReentrantLockClass().unlock();
       }
     }
   }
