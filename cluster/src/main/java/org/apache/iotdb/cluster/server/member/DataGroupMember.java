@@ -310,6 +310,8 @@ public class DataGroupMember extends RaftMember {
     // taking the leadership, which guarantees the valid leader will not have the stale
     // partition table
     synchronized (term) {
+      logger.info("add by qihouliang, addNode, name={}, owner={}", getName(),
+          reentrantLockClass.owner());
       reentrantLockClass.lock();
       term.incrementAndGet();
       setLeader(null);
@@ -589,6 +591,9 @@ public class DataGroupMember extends RaftMember {
   private void applyPartitionedSnapshot(PartitionedSnapshot snapshot)
       throws SnapshotApplicationException {
     synchronized (logManager) {
+      logger.info("add by qihouliang,applyPartitionedSnapshot, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       List<Integer> slots = metaGroupMember.getPartitionTable().getNodeSlots(getHeader());
       for (Integer slot : slots) {
         Snapshot subSnapshot = snapshot.getSnapshot(slot);
@@ -597,6 +602,7 @@ public class DataGroupMember extends RaftMember {
         }
       }
       logManager.applyingSnapshot(snapshot);
+      logManagerReentrantLockClass.unlock();
     }
   }
 
@@ -868,6 +874,9 @@ public class DataGroupMember extends RaftMember {
     // this synchronized should work with the one in AppendEntry when a log is going to commit,
     // which may prevent the newly arrived data from being invisible to the new header.
     synchronized (logManager) {
+      logger.info("add by qihouliang,pullSnapshot, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       PullSnapshotResp resp = new PullSnapshotResp();
       Map<Integer, ByteBuffer> resultMap = new HashMap<>();
       logManager.takeSnapshot();
@@ -881,6 +890,7 @@ public class DataGroupMember extends RaftMember {
       }
       resp.setSnapshotBytes(resultMap);
       logger.debug("{}: Sending {} snapshots to the requester", name, resultMap.size());
+      logManagerReentrantLockClass.unlock();
       return resp;
     }
   }
@@ -894,6 +904,9 @@ public class DataGroupMember extends RaftMember {
    */
   public void pullNodeAdditionSnapshots(List<Integer> slots, Node newNode) {
     synchronized (logManager) {
+      logger.info("add by qihouliang,pullNodeAdditionSnapshots, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       logger.info("{} pulling {} slots from remote", name, slots.size());
       PartitionedSnapshot snapshot = (PartitionedSnapshot) logManager.getSnapshot();
       Map<Integer, Node> prevHolders = metaGroupMember.getPartitionTable()
@@ -920,6 +933,7 @@ public class DataGroupMember extends RaftMember {
                 nodeSlots, false);
         pullFileSnapshot(taskDescriptor, null);
       }
+      logManagerReentrantLockClass.unlock();
     }
   }
 
@@ -1024,12 +1038,16 @@ public class DataGroupMember extends RaftMember {
     }
     CloseFileLog log = new CloseFileLog(storageGroupName, partitionId, isSeq);
     synchronized (logManager) {
+      logger.info("add by qihouliang,closePartition, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       log.setCurrLogTerm(getTerm().get());
       log.setCurrLogIndex(logManager.getLastLogIndex() + 1);
 
       logManager.append(log);
 
       logger.info("Send the close file request of {} to other nodes", log);
+      logManagerReentrantLockClass.unlock();
     }
     try {
       return appendLogInGroup(log);
@@ -1452,6 +1470,8 @@ public class DataGroupMember extends RaftMember {
         if (removedNode.equals(leader)) {
           // if the leader is removed, also start an election immediately
           synchronized (term) {
+            logger.info("add by qihouliang, removeNode, name={}, owner={}", getName(),
+                reentrantLockClass.owner());
             reentrantLockClass.lock();
             setCharacter(NodeCharacter.ELECTOR);
             setLastHeartbeatReceivedTime(Long.MIN_VALUE);

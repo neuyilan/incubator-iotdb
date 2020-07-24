@@ -147,6 +147,10 @@ public abstract class RaftMember {
 
   // the raft logs are all stored and maintained in the log manager
   RaftLogManager logManager;
+  ReentrantLockClass logManagerReentrantLockClass = new ReentrantLockClass();
+  public ReentrantLockClass getLogManagerReentrantLockClass() {
+    return logManagerReentrantLockClass;
+  }
 
   // the single thread pool that runs the heartbeat thread
   ExecutorService heartBeatService;
@@ -327,9 +331,15 @@ public abstract class RaftMember {
         // tell the leader who I am in case of catch-up
         response.setFollower(thisNode);
 
+        logger.info("add by qihouliang,why not get the lock, name={},logManager owner={}", name,
+            logManagerReentrantLockClass.owner());
         synchronized (logManager) {
+          logger.info("add by qihouliang,12345, name={},logManager owner={}", name,
+              logManagerReentrantLockClass.owner());
+          logManagerReentrantLockClass.lock();
           response.setLastLogIndex(logManager.getLastLogIndex());
           response.setLastLogTerm(logManager.getLastLogTerm());
+          logManagerReentrantLockClass.unlock();
         }
 
         logger.info("add by qihouliang,888, name={}, owners={}", name, reentrantLockClass.owner());
@@ -368,6 +378,8 @@ public abstract class RaftMember {
    */
   public long startElection(ElectionRequest electionRequest) {
     synchronized (term) {
+      logger.info("add by qihouliang, startElection, name={}, owner={}", name,
+          reentrantLockClass.owner());
       reentrantLockClass.lock();
       long currentTerm = term.get();
       if (electionRequest.getTerm() < currentTerm) {
@@ -414,6 +426,8 @@ public abstract class RaftMember {
     long localTerm;
 
     synchronized (term) {
+      logger.info("add by qihouliang, checkRequestTerm, name={}, owner={}", name,
+          reentrantLockClass.owner());
       reentrantLockClass.lock();
       // if the request comes before the heartbeat arrives, the local term may be smaller than the
       // leader term
@@ -450,6 +464,9 @@ public abstract class RaftMember {
   private long appendEntry(long prevLogIndex, long prevLogTerm, long leaderCommit, Log log) {
     long resp;
     synchronized (logManager) {
+      logger.info("add by qihouliang,appendEntry, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       long success = logManager.maybeAppend(prevLogIndex, prevLogTerm, leaderCommit, log);
       if (success != -1) {
         logger.debug("{} append a new log {}", name, log);
@@ -458,6 +475,7 @@ public abstract class RaftMember {
         // the incoming log points to an illegal position, reject it
         resp = Response.RESPONSE_LOG_MISMATCH;
       }
+      logManagerReentrantLockClass.unlock();
     }
     return resp;
   }
@@ -531,6 +549,9 @@ public abstract class RaftMember {
 
     long resp;
     synchronized (logManager) {
+      logger.info("add by qihouliang,appendEntries, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       resp = logManager.maybeAppend(prevLogIndex, prevLogTerm, leaderCommit, logs);
       if (resp != -1) {
         if (logger.isDebugEnabled()) {
@@ -541,6 +562,7 @@ public abstract class RaftMember {
         // the incoming log points to an illegal position, reject it
         resp = Response.RESPONSE_LOG_MISMATCH;
       }
+      logManagerReentrantLockClass.unlock();
     }
     return resp;
   }
@@ -557,6 +579,8 @@ public abstract class RaftMember {
     long localTerm;
 
     synchronized (term) {
+      logger.info("add by qihouliang, checkRequestTerm, name={}, owner={}", name,
+          reentrantLockClass.owner());
       reentrantLockClass.lock();
       // if the request comes before the heartbeat arrives, the local term may be smaller than the
       // leader term
@@ -1007,6 +1031,8 @@ public abstract class RaftMember {
    */
   public void stepDown(long newTerm, boolean fromLeader) {
     synchronized (term) {
+      logger.info("add by qihouliang, stepDown, name={}, owner={}", name,
+          reentrantLockClass.owner());
       reentrantLockClass.lock();
       long currTerm = term.get();
       // confirm that the heartbeat of the new leader hasn't come
@@ -1075,11 +1101,15 @@ public abstract class RaftMember {
   long verifyElector(long lastLogIndex, long lastLogTerm) {
     long response;
     synchronized (logManager) {
+      logger.info("add by qihouliang,verifyElector, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       if (logManager.isLogUpToDate(lastLogTerm, lastLogIndex)) {
         response = Response.RESPONSE_AGREE;
       } else {
         response = Response.RESPONSE_LOG_MISMATCH;
       }
+      logManagerReentrantLockClass.unlock();
     }
     return response;
   }
@@ -1231,11 +1261,15 @@ public abstract class RaftMember {
     PhysicalPlanLog log = new PhysicalPlanLog();
     // assign term and index to the new log and append it
     synchronized (logManager) {
+      logger.info("add by qihouliang,processPlanLocally, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       log.setCurrLogTerm(getTerm().get());
       log.setCurrLogIndex(logManager.getLastLogIndex() + 1);
 
       log.setPlan(plan);
       logManager.append(log);
+      logManagerReentrantLockClass.unlock();
     }
 
     try {
@@ -1307,7 +1341,11 @@ public abstract class RaftMember {
   @SuppressWarnings("java:S2445")
   private void commitLog(Log log) throws LogExecutionException {
     synchronized (logManager) {
+      logger.info("add by qihouliang,commitLog, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       logManager.commitTo(log.getCurrLogIndex(), false);
+      logManagerReentrantLockClass.unlock();
     }
     if (ClusterDescriptor.getInstance().getConfig().isUseAsyncApplier()) {
       synchronized (log) {
@@ -1535,7 +1573,11 @@ public abstract class RaftMember {
 
   public void setReadOnly() {
     synchronized (logManager) {
+      logger.info("add by qihouliang,setReadOnly, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       readOnly = true;
+      logManagerReentrantLockClass.unlock();
     }
   }
 

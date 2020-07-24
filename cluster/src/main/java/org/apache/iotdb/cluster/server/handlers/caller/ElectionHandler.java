@@ -66,7 +66,9 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
   public void onComplete(Long resp) {
     long voterResp = resp;
     synchronized (raftMember.getTerm()) {
-      raftMember.getReentrantLockClass().lock();
+      logger.info("add by qihouliang, onComplete, name={}, owner={}", raftMember.getName(),
+          raftMember.getReentrantLockClass().owner());
+//      raftMember.getReentrantLockClass().lock();
       if (terminated.get()) {
         // a voter has rejected this election, which means the term or the log id falls behind
         // this node is not able to be the leader
@@ -104,7 +106,7 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
           raftMember.getTerm().notifyAll();
         }
       }
-      raftMember.getReentrantLockClass().unlock();
+//      raftMember.getReentrantLockClass().unlock();
     }
   }
 
@@ -117,15 +119,16 @@ public class ElectionHandler implements AsyncMethodCallback<Long> {
     }
     onFail();
   }
-
   private void onFail() {
     int failingVoteRemaining = failingVoteCounter.decrementAndGet();
     if (failingVoteRemaining <= 0) {
       synchronized (raftMember.getTerm()) {
-        raftMember.getReentrantLockClass().lock();
+        logger.info("add by qihouliang, onFail, name={}, owner={}", raftMember.getName(),
+            raftMember.getReentrantLockClass().owner());
+//        raftMember.getReentrantLockClass().lock();
         // wake up heartbeat thread to start the next election
         raftMember.getTerm().notifyAll();
-        raftMember.getReentrantLockClass().unlock();
+//        raftMember.getReentrantLockClass().unlock();
       }
     }
   }

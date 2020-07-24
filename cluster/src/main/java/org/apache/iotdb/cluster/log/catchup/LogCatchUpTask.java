@@ -89,6 +89,8 @@ public class LogCatchUpTask implements Callable<Boolean> {
     for (int i = 0; i < logs.size() && !abort; i++) {
       Log log = logs.get(i);
       synchronized (raftMember.getTerm()) {
+        logger.info("add by qihouliang, doLogCatchUp, name={}, owner={}", raftMember.getName(),
+            raftMember.getReentrantLockClass().owner());
         raftMember.getReentrantLockClass().lock();
         // make sure this node is still a leader
         if (raftMember.getCharacter() != NodeCharacter.LEADER) {
@@ -186,6 +188,8 @@ public class LogCatchUpTask implements Callable<Boolean> {
         logList.add(logs.get(j).serialize());
       }
       synchronized (raftMember.getTerm()) {
+        logger.info("add by qihouliang, doLogCatchUpInBatch, name={}, owner={}", raftMember.getName(),
+            raftMember.getReentrantLockClass().owner());
         raftMember.getReentrantLockClass().lock();
         // make sure this node is still a leader
         if (raftMember.getCharacter() != NodeCharacter.LEADER) {

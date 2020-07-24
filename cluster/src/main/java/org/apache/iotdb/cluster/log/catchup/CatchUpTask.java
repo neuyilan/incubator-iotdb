@@ -116,6 +116,8 @@ public class CatchUpTask implements Runnable {
     boolean isLogDebug = logger.isDebugEnabled();
     Log log = logs.get(index);
     synchronized (raftMember.getTerm()) {
+      logger.info("add by qihouliang, checkMatchIndex, owner={}",
+          raftMember.getReentrantLockClass().owner());
       raftMember.getReentrantLockClass().lock();
       // make sure this node is still a leader
       if (raftMember.getCharacter() != NodeCharacter.LEADER) {

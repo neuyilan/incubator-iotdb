@@ -64,6 +64,8 @@ public class SnapshotCatchUpTask extends LogCatchUpTask implements Callable<Bool
     request.setSnapshotBytes(snapshot.serialize());
 
     synchronized (raftMember.getTerm()) {
+      logger.info("add by qihouliang, doSnapshotCatchUp, name={}, owner={}", raftMember.getName(),
+          raftMember.getReentrantLockClass().owner());
       raftMember.getReentrantLockClass().lock();
       // make sure this node is still a leader
       if (raftMember.getCharacter() != NodeCharacter.LEADER) {

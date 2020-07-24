@@ -834,6 +834,9 @@ public class MetaGroupMember extends RaftMember {
 
     // node adding must be serialized to reduce potential concurrency problem
     synchronized (logManager) {
+      logger.info("add by qihouliang,processAddNodeLocally, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       AddNodeLog addNodeLog = new AddNodeLog();
       addNodeLog.setCurrLogTerm(getTerm().get());
       addNodeLog.setCurrLogIndex(logManager.getLastLogIndex() + 1);
@@ -857,6 +860,7 @@ public class MetaGroupMember extends RaftMember {
             }
             response.setRespNum((int) Response.RESPONSE_AGREE);
             logger.info("Sending join response of {}", node);
+            logManagerReentrantLockClass.unlock();
             return true;
           case TIME_OUT:
             logger.info("Join request of {} timed out", node);
@@ -864,6 +868,7 @@ public class MetaGroupMember extends RaftMember {
             continue;
           case LEADERSHIP_STALE:
           default:
+            logManagerReentrantLockClass.unlock();
             return false;
         }
       }
@@ -1287,6 +1292,10 @@ public class MetaGroupMember extends RaftMember {
    */
   private void applySnapshot(MetaSimpleSnapshot snapshot) {
     synchronized (logManager) {
+      logger.info("add by qihouliang,applySnapshot, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
+
       // 0. first delete all storage groups
       try {
         IoTDB.metaManager
@@ -1332,6 +1341,7 @@ public class MetaGroupMember extends RaftMember {
       acceptPartitionTable(snapshot.getPartitionTableBuffer());
 
       logManager.applyingSnapshot(snapshot);
+      logManagerReentrantLockClass.unlock();
     }
   }
 
@@ -3039,6 +3049,9 @@ public class MetaGroupMember extends RaftMember {
 
     // node removal must be serialized to reduce potential concurrency problem
     synchronized (logManager) {
+      logger.info("add by qihouliang,processRemoveNodeLocally, name={},logManager owner={}", name,
+          logManagerReentrantLockClass.owner());
+      logManagerReentrantLockClass.lock();
       RemoveNodeLog removeNodeLog = new RemoveNodeLog();
       removeNodeLog.setCurrLogTerm(getTerm().get());
       removeNodeLog.setCurrLogIndex(logManager.getLastLogIndex() + 1);
@@ -3057,6 +3070,7 @@ public class MetaGroupMember extends RaftMember {
           case OK:
             logger.info("Removal request of {} is accepted", target);
             logManager.commitTo(removeNodeLog.getCurrLogIndex(), false);
+            logManagerReentrantLockClass.unlock();
             return Response.RESPONSE_AGREE;
           case TIME_OUT:
             logger.info("Removal request of {} timed out", target);
@@ -3064,9 +3078,11 @@ public class MetaGroupMember extends RaftMember {
           // retry
           case LEADERSHIP_STALE:
           default:
+            logManagerReentrantLockClass.unlock();
             return Response.RESPONSE_NULL;
         }
       }
+
     }
   }
 
