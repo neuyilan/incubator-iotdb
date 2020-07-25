@@ -63,6 +63,7 @@ public class CatchUpTask implements Runnable {
    * @throws TException
    * @throws InterruptedException
    */
+  //TODO 可以优化，二分查找？
   boolean checkMatchIndex() throws TException, InterruptedException, LeaderUnknownException {
     boolean isLogDebug = logger.isDebugEnabled();
     long lo = 0;
