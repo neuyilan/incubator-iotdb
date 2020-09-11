@@ -147,8 +147,8 @@ public abstract class RaftMember {
   Map<Node, Peer> peerMap;
 
   /**
-   * the current term of the node, this object also works as lock of some transactions of the
-   * member like elections.
+   * the current term of the node, this object also works as lock of some transactions of the member
+   * like elections.
    */
   AtomicLong term = new AtomicLong(0);
   volatile NodeCharacter character = NodeCharacter.ELECTOR;
@@ -159,8 +159,8 @@ public abstract class RaftMember {
    */
   volatile Node voteFor;
   /**
-   * when the leader of this node changes, the condition will be notified so other threads that
-   * wait on this may be woken.
+   * when the leader of this node changes, the condition will be notified so other threads that wait
+   * on this may be woken.
    */
   private final Object waitLeaderCondition = new Object();
   /**
@@ -182,10 +182,9 @@ public abstract class RaftMember {
   ExecutorService heartBeatService;
 
   /**
-   * if set to true, the node will reject all log appends
-   * when the header of a group is removed from the cluster, the members of the group should no
-   * longer accept writes, but they still can be candidates for weak consistency reads and
-   * provide snapshots for the new data holders
+   * if set to true, the node will reject all log appends when the header of a group is removed from
+   * the cluster, the members of the group should no longer accept writes, but they still can be
+   * candidates for weak consistency reads and provide snapshots for the new data holders
    */
   volatile boolean readOnly = false;
   /**
@@ -194,11 +193,16 @@ public abstract class RaftMember {
   private ExecutorService catchUpService;
 
   /**
+   * used for catch up service, for one follower,there can only be one catch up task at a time
+   */
+  private final Object catchUpServiceLock = new Object();
+
+  /**
    * lastCatchUpResponseTime records when is the latest response of each node's catch-up. There
-   * should be only one catch-up task for each node to avoid duplication, but the task may
-   * time out or the task may corrupt unexpectedly, and in that case, the next catch up should be
-   * enabled. So if we find a catch-up task that does not respond for long, we will start a new
-   * one instead of waiting for the previous one to finish.
+   * should be only one catch-up task for each node to avoid duplication, but the task may time out
+   * or the task may corrupt unexpectedly, and in that case, the next catch up should be enabled. So
+   * if we find a catch-up task that does not respond for long, we will start a new one instead of
+   * waiting for the previous one to finish.
    */
   private Map<Node, Long> lastCatchUpResponseTime = new ConcurrentHashMap<>();
 
@@ -212,13 +216,13 @@ public abstract class RaftMember {
   private SyncClientPool syncHeartbeatClientPool;
 
   /**
-   * when the commit progress is updated by a heartbeat, this object is notified so that we may
-   * know if this node is up-to-date with the leader, and whether the given consistency is reached
+   * when the commit progress is updated by a heartbeat, this object is notified so that we may know
+   * if this node is up-to-date with the leader, and whether the given consistency is reached
    */
   private Object syncLock = new Object();
   /**
-   * when this node is send logs to the followers, the sends are performed parallel in this pool,
-   * so that a slow or unavailable node will not block other nodes.
+   * when this node is send logs to the followers, the sends are performed parallel in this pool, so
+   * that a slow or unavailable node will not block other nodes.
    */
   private ExecutorService appendLogThreadPool;
 
@@ -246,9 +250,9 @@ public abstract class RaftMember {
   long lastReportedLogIndex;
 
   /**
-   * logDispatcher buff the logs orderly according to their log indexes and send them
-   * sequentially, which avoids the followers receiving out-of-order logs, forcing them to wait
-   * for previous logs.
+   * logDispatcher buff the logs orderly according to their log indexes and send them sequentially,
+   * which avoids the followers receiving out-of-order logs, forcing them to wait for previous
+   * logs.
    */
   private LogDispatcher logDispatcher;
 
@@ -296,15 +300,16 @@ public abstract class RaftMember {
     appendLogThreadPool =
         Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 10,
             new ThreadFactoryBuilder().setNameFormat(getName() +
-        "-AppendLog%d").build());
+                "-AppendLog%d").build());
     if (!ClusterDescriptor.getInstance().getConfig().isUseAsyncServer()) {
       serialToParallelPool = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), 100,
           0L, TimeUnit.MILLISECONDS,
           new LinkedBlockingQueue<>(), new ThreadFactoryBuilder().setNameFormat(getName() +
           "-SerialToParallel%d").build());
     }
-    commitLogPool = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(getName() +
-        "-CommitLog%d").build());
+    commitLogPool = Executors
+        .newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(getName() +
+            "-CommitLog%d").build());
 
     logger.info("{} started", name);
   }
@@ -365,8 +370,8 @@ public abstract class RaftMember {
   /**
    * Process the HeartBeatRequest from the leader. If the term of the leader is smaller than the
    * local term, reject the request by telling it the newest term. Else if the local logs are
-   * consistent with the leader's, commit them. Else help the leader find the last matched log.
-   * Also update the leadership, heartbeat timer and term of the local node.
+   * consistent with the leader's, commit them. Else help the leader find the last matched log. Also
+   * update the leadership, heartbeat timer and term of the local node.
    *
    * @param request
    */
@@ -432,8 +437,8 @@ public abstract class RaftMember {
   }
 
   /**
-   * Process an ElectionRequest. If the request comes from the last leader, accept it. Else
-   * decide whether to accept by examining the log status of the elector.
+   * Process an ElectionRequest. If the request comes from the last leader, accept it. Else decide
+   * whether to accept by examining the log status of the elector.
    *
    * @param electionRequest
    */
@@ -459,7 +464,7 @@ public abstract class RaftMember {
         // the elector has a larger term, this node should update its term first
         logger.info(
             "{} received an election from elector {} which has bigger term {} than localTerm {}, raftMember should step down first and then continue to decide whether to grant it's vote by log status.",
-            name,electionRequest.getElector(), electionRequest.getTerm(), currentTerm);
+            name, electionRequest.getElector(), electionRequest.getTerm(), currentTerm);
         stepDown(electionRequest.getTerm(), false);
       }
 
@@ -540,7 +545,7 @@ public abstract class RaftMember {
     long alreadyWait = 0;
     Object logUpdateCondition = logManager.getLogUpdateCondition();
     while (logManager.getLastLogIndex() < prevLogIndex &&
-    alreadyWait <= RaftServer.getWriteOperationTimeoutMS()) {
+        alreadyWait <= RaftServer.getWriteOperationTimeoutMS()) {
       synchronized (logUpdateCondition) {
         try {
           logUpdateCondition.wait();
@@ -1182,7 +1187,7 @@ public abstract class RaftMember {
    */
   public void catchUp(Node follower) {
     // for one follower, there is at most one ongoing catch-up
-    synchronized (catchUpService) {
+    synchronized (catchUpServiceLock) {
       // check if the last catch-up is still ongoing
       Long lastCatchupResp = lastCatchUpResponseTime.get(follower);
       if (lastCatchupResp != null
@@ -1190,13 +1195,12 @@ public abstract class RaftMember {
           .getWriteOperationTimeoutMS()) {
         logger.debug("{}: last catch up of {} is ongoing", name, follower);
         return;
-      } else {
-        // record the start of the catch-up
-        lastCatchUpResponseTime.put(follower, System.currentTimeMillis());
       }
-    }
 
-    catchUpService.submit(new CatchUpTask(follower, peerMap.get(follower), this));
+      // record the start of the catch-up
+      lastCatchUpResponseTime.put(follower, System.currentTimeMillis());
+      catchUpService.submit(new CatchUpTask(follower, peerMap.get(follower), this));
+    }
   }
 
   public String getName() {
