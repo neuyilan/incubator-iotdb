@@ -184,6 +184,12 @@ public abstract class RaftMember {
    * the thread pool that runs catch-up tasks
    */
   private ExecutorService catchUpService;
+
+  /**
+   * used for catch up service, for one follower, there can only be one catch up task at a time
+   */
+  private final Object catchUpServiceLock = new Object();
+
   /**
    * lastCatchUpResponseTime records when is the latest response of each node's catch-up. There
    * should be only one catch-up task for each node to avoid duplication, but the task may time out
@@ -634,7 +640,7 @@ public abstract class RaftMember {
   public void catchUp(Node follower) {
     // for one follower, there is at most one ongoing catch-up, so the same data will not be sent
     // twice to the node
-    synchronized (catchUpService) {
+    synchronized (catchUpServiceLock) {
       // check if the last catch-up is still ongoing and does not time out yet
       Long lastCatchupResp = lastCatchUpResponseTime.get(follower);
       if (lastCatchupResp != null
@@ -642,13 +648,11 @@ public abstract class RaftMember {
           .getWriteOperationTimeoutMS()) {
         logger.debug("{}: last catch up of {} is ongoing", name, follower);
         return;
-      } else {
-        // record the start of the catch-up
-        lastCatchUpResponseTime.put(follower, System.currentTimeMillis());
       }
+      // record the start of the catch-up
+      lastCatchUpResponseTime.put(follower, System.currentTimeMillis());
+      catchUpService.submit(new CatchUpTask(follower, peerMap.get(follower), this));
     }
-
-    catchUpService.submit(new CatchUpTask(follower, peerMap.get(follower), this));
   }
 
   /**
@@ -954,10 +958,10 @@ public abstract class RaftMember {
   /**
    * Forward a non-query plan to a node using the default client.
    *
-   * @param plan a non-query plan
-   * @param node cannot be the local node
+   * @param plan   a non-query plan
+   * @param node   cannot be the local node
    * @param header must be set for data group communication, set to null for meta group
-   * communication
+   *               communication
    * @return a TSStatus indicating if the forwarding is successful.
    */
   TSStatus forwardPlan(PhysicalPlan plan, Node node, Node header) {
@@ -977,7 +981,7 @@ public abstract class RaftMember {
   /**
    * Forward a non-query plan to "receiver" using "client".
    *
-   * @param plan a non-query plan
+   * @param plan   a non-query plan
    * @param header to determine which DataGroupMember of "receiver" will process the request.
    * @return a TSStatus indicating if the forwarding is successful.
    */
@@ -1257,7 +1261,7 @@ public abstract class RaftMember {
    * heartbeat timer.
    *
    * @param fromLeader true if the request is from a leader, false if the request is from an
-   * elector.
+   *                   elector.
    */
   public void stepDown(long newTerm, boolean fromLeader) {
     synchronized (term) {
@@ -1354,7 +1358,7 @@ public abstract class RaftMember {
    * success.
    *
    * @param requiredQuorum the number of votes needed to make the log valid, when requiredQuorum <=
-   * 0, half of the cluster size will be used.
+   *                       0, half of the cluster size will be used.
    * @return an AppendLogResult
    */
   private AppendLogResult sendLogToFollowers(Log log, int requiredQuorum) {
@@ -1451,8 +1455,9 @@ public abstract class RaftMember {
   }
 
   /**
-   * wait until the difference of log index between the matched log of peer and the given log
-   * become no bigger than maxLogDiff.
+   * wait until the difference of log index between the matched log of peer and the given log become
+   * no bigger than maxLogDiff.
+   *
    * @param peer
    * @param log
    * @return
