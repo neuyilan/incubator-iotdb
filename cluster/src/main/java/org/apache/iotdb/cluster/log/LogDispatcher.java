@@ -21,10 +21,13 @@ package org.apache.iotdb.cluster.log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,23 +50,35 @@ public class LogDispatcher {
   private RaftMember member;
   private List<BlockingQueue<SendLogRequest>> nodeLogQueues =
       new ArrayList<>();
+  private Map<Integer, Node> nodeIntegerMap;
   private ExecutorService executorService;
 
   public LogDispatcher(RaftMember member) {
+    nodeIntegerMap = new ConcurrentHashMap();
     this.member = member;
     executorService = Executors.newCachedThreadPool();
+    int i = 0;
     for (Node node : member.getAllNodes()) {
       if (!node.equals(member.getThisNode())) {
         nodeLogQueues.add(createQueueAndBindingThread(node));
+        nodeIntegerMap.put(i, node);
+        i++;
+        logger.debug("qhl, {}, node={}", member.getName(), node.toString());
       }
     }
+
   }
 
-  public void offer(SendLogRequest log) {
+  public boolean offer(SendLogRequest log) {
     for (int i = 0; i < nodeLogQueues.size(); i++) {
       BlockingQueue<SendLogRequest> nodeLogQueue = nodeLogQueues.get(i);
+      logger.debug("qhl,{}, nodeLogQueue size={}, i={}, receiver={}", member.getName(),
+          nodeLogQueue.size(), i, nodeIntegerMap.get(i));
       try {
-        nodeLogQueue.put(log);
+        boolean success = nodeLogQueue.offer(log, 60, TimeUnit.SECONDS);
+        if (!success) {
+          return false;
+        }
       } catch (InterruptedException e) {
         logger.error("Interrupted when inserting {} into queue[{}]", log, i);
         Thread.currentThread().interrupt();
@@ -72,6 +87,7 @@ public class LogDispatcher {
     if (logger.isDebugEnabled()) {
       logger.debug("{} is enqueued in {} queues", log.log, nodeLogQueues.size());
     }
+    return true;
   }
 
   private BlockingQueue<SendLogRequest> createQueueAndBindingThread(Node node) {
@@ -146,36 +162,51 @@ public class LogDispatcher {
         BlockingQueue<SendLogRequest> logBlockingDeque) {
       this.receiver = receiver;
       this.logBlockingDeque = logBlockingDeque;
+      logger.debug("qhl {}, receiver={}", member.getName(), receiver.toString());
     }
 
     @Override
     public void run() {
       Thread.currentThread().setName("LogDispatcher-" + member.getName() + "-" + receiver);
+      logger
+          .debug("qhl, start {}, thread name={}", member.getName(),
+              Thread.currentThread().getName());
       try {
         while (!Thread.interrupted()) {
-          SendLogRequest poll = logBlockingDeque.take();
-          currBatch.add(poll);
-          logBlockingDeque.drainTo(currBatch);
+          SendLogRequest poll = logBlockingDeque.peek();
+          if (poll == null) {
+            continue;
+          }
+
+//          currBatch.add(poll);
+//          logBlockingDeque.drainTo(currBatch);
           if (logger.isDebugEnabled()) {
             logger.debug("Sending {} logs to {}", currBatch.size(), receiver);
           }
-          for (SendLogRequest request : currBatch) {
-            sendLog(request);
+          boolean success = sendLog(poll);
+          if (success) {
+            logBlockingDeque.remove();
           }
-          currBatch.clear();
+//          for (SendLogRequest request : currBatch) {
+//            sendLog(request);
+//          }
+//          currBatch.clear();
+          if (logger.isDebugEnabled()) {
+            logger.debug("end of Sending {} logs to {} ", currBatch.size(), receiver);
+          }
         }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
       } catch (Exception e) {
         logger.error("Unexpected error in log dispatcher", e);
       }
       logger.info("Dispatcher exits");
     }
 
-    private void sendLog(SendLogRequest logRequest) {
-      member.sendLogToFollower(logRequest.log, logRequest.getVoteCounter(), receiver,
-          logRequest.getLeaderShipStale(), logRequest.getNewLeaderTerm(),
-          logRequest.getAppendEntryRequest());
+    private boolean sendLog(SendLogRequest logRequest) {
+      boolean success = member
+          .sendLogToFollower(logRequest.log, logRequest.getVoteCounter(), receiver,
+              logRequest.getLeaderShipStale(), logRequest.getNewLeaderTerm(),
+              logRequest.getAppendEntryRequest());
+      return success;
     }
   }
 }

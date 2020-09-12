@@ -1100,7 +1100,13 @@ public abstract class RaftMember {
       // logDispatcher will send logs to followers in an ordered manner to reduce follower side
       // waits for previous logs
       sendLogRequest = buildSendLogRequest(log);
-      getLogDispatcher().offer(sendLogRequest);
+      long startTime = System.currentTimeMillis();
+      boolean success = getLogDispatcher().offer(sendLogRequest);
+      if (!success) {
+        return StatusUtils.TIME_OUT;
+      }
+      logger
+          .debug("qhl, {}, offer time cost={}", getName(), System.currentTimeMillis() - startTime);
     }
 
     try {
@@ -1428,10 +1434,10 @@ public abstract class RaftMember {
   /**
    * Send "log" to "node".
    */
-  public void sendLogToFollower(Log log, AtomicInteger voteCounter, Node node,
+  public boolean sendLogToFollower(Log log, AtomicInteger voteCounter, Node node,
       AtomicBoolean leaderShipStale, AtomicLong newLeaderTerm, AppendEntryRequest request) {
     if (node.equals(thisNode)) {
-      return;
+      return true;
     }
     /**
      * if the peer's log progress is too stale, wait until it catches up, otherwise, there may be
@@ -1440,11 +1446,11 @@ public abstract class RaftMember {
     Peer peer = peerMap.computeIfAbsent(node, k -> new Peer(logManager.getLastLogIndex()));
     if (!waitForPrevLog(peer, log)) {
       logger.warn("{}: node {} timed out when appending {}", name, node, log);
-      return;
+      return false;
     }
 
     if (character != NodeCharacter.LEADER) {
-      return;
+      return true;
     }
 
     if (ClusterDescriptor.getInstance().getConfig().isUseAsyncServer()) {
@@ -1452,6 +1458,7 @@ public abstract class RaftMember {
     } else {
       sendLogSync(log, voteCounter, node, leaderShipStale, newLeaderTerm, request, peer);
     }
+    return true;
   }
 
   /**

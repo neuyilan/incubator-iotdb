@@ -102,6 +102,7 @@ public class HeartbeatHandler implements AsyncMethodCallback<HeartBeatResponse> 
         int inconsistentNum = peer.incInconsistentHeartbeatNum();
         if (inconsistentNum >= 5) {
           localMember.catchUp(follower);
+          peer.resetInconsistentHeartbeatNum();
         }
       } else {
         // the follower's lastLogIndex is changed, which means the follower is not down yet, we

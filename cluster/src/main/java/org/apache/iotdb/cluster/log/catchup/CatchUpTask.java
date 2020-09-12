@@ -64,11 +64,12 @@ public class CatchUpTask implements Runnable {
    * @throws TException
    * @throws InterruptedException
    */
-  private boolean checkMatchIndex() throws TException, InterruptedException, LeaderUnknownException {
+  private boolean checkMatchIndex()
+      throws TException, InterruptedException, LeaderUnknownException {
     boolean isLogDebug = logger.isDebugEnabled();
     long lo = 0;
     long hi = 0;
-    logger.debug("Checking the match index of {}", node);
+    logger.debug("{}, Checking the match index of {}", raftMember.getName(), node);
     try {
       long localFirstIndex = raftMember.getLogManager().getFirstIndex();
       lo = Math.max(localFirstIndex, peer.getMatchIndex() + 1);
@@ -195,8 +196,10 @@ public class CatchUpTask implements Runnable {
     }
   }
 
+  @Override
   public void run() {
     try {
+      logger.debug("{},start do catch up task", raftMember.getName());
       boolean findMatchedIndex = checkMatchIndex();
       boolean catchUpSucceeded;
       if (!findMatchedIndex) {
