@@ -97,13 +97,24 @@ public class PartitionedSnapshot<T extends Snapshot> extends Snapshot {
     return slotSnapshots.get(slot);
   }
 
+//  @Override
+//  public String toString() {
+//    return "PartitionedSnapshot{" +
+//        "slotSnapshots=" + slotSnapshots.size() +
+//        ", lastLogIndex=" + lastLogIndex +
+//        ", lastLogTerm=" + lastLogTerm +
+//        '}';
+//  }
+
+
   @Override
   public String toString() {
-    return "PartitionedSnapshot{" +
-        "slotSnapshots=" + slotSnapshots.size() +
-        ", lastLogIndex=" + lastLogIndex +
-        ", lastLogTerm=" + lastLogTerm +
-        '}';
+    return "PartitionedSnapshot{"
+        + " slotSnapshots=" + slotSnapshots
+        + ", factory=" + factory
+        + ", lastLogIndex=" + lastLogIndex
+        + ", lastLogTerm=" + lastLogTerm
+        + "}";
   }
 
   @Override

@@ -201,9 +201,18 @@ public class CatchUpTask implements Runnable {
   public void run() {
     try {
       boolean findMatchedIndex = checkMatchIndex();
+      System.out.println("aaaa=" + findMatchedIndex);
       boolean catchUpSucceeded;
       if (!findMatchedIndex) {
         doSnapshot();
+        // if snapshot success, the peer's matched log index should be snapshot.getLastLogIndex()
+        // is the snapshot fails, the logs will not be send to the peer
+        System.out.println("before" + logs);
+        long lo = snapshot.getLastLogIndex() + 1;
+        long hi = raftMember.getLogManager().getLastLogIndex() + 1;
+        logs = raftMember.getLogManager().getEntries(lo, hi);
+        System.out.println("after" + logs);
+        System.out.println("snapshot" + snapshot.toString());
         SnapshotCatchUpTask task = new SnapshotCatchUpTask(logs, snapshot, node, raftMember);
         catchUpSucceeded = task.call();
       } else {
@@ -223,6 +232,8 @@ public class CatchUpTask implements Runnable {
                 logs.get(logs.size() - 1).getCurrLogIndex());
           }
         } else {
+          System.out.println("111111");
+          peer.setMatchIndex(snapshot.getLastLogIndex());
           logger.debug("{}: Logs are empty when catching up {}, it may have been caught up",
               raftMember.getName(), node);
         }

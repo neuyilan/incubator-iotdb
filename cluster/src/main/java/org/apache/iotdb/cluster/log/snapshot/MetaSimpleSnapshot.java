@@ -161,6 +161,18 @@ public class MetaSimpleSnapshot extends SimpleSnapshot {
   }
 
   @Override
+  public String toString() {
+    return "MetaSimpleSnapshot{"
+        + " storageGroupTTLMap=" + storageGroupTTLMap
+        + ", userMap=" + userMap
+        + ", roleMap=" + roleMap
+        + ", partitionTableBuffer=" + partitionTableBuffer
+        + ", lastLogIndex=" + lastLogIndex
+        + ", lastLogTerm=" + lastLogTerm
+        + "}";
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;

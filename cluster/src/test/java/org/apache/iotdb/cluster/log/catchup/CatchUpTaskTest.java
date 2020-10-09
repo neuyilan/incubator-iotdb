@@ -27,17 +27,15 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.iotdb.cluster.common.EnvironmentUtils;
 import org.apache.iotdb.cluster.common.TestAsyncClient;
-import org.apache.iotdb.cluster.common.TestMetaGroupMember;
+import org.apache.iotdb.cluster.common.TestDataGroupMember;
 import org.apache.iotdb.cluster.common.TestSyncClient;
-import org.apache.iotdb.cluster.common.TestUtils;
 import org.apache.iotdb.cluster.config.ClusterDescriptor;
 import org.apache.iotdb.cluster.exception.LogExecutionException;
 import org.apache.iotdb.cluster.log.Log;
 import org.apache.iotdb.cluster.log.LogParser;
-import org.apache.iotdb.cluster.log.Snapshot;
 import org.apache.iotdb.cluster.log.logtypes.EmptyContentLog;
-import org.apache.iotdb.cluster.partition.PartitionTable;
-import org.apache.iotdb.cluster.partition.slot.SlotPartitionTable;
+import org.apache.iotdb.cluster.log.snapshot.FileSnapshot;
+import org.apache.iotdb.cluster.log.snapshot.PartitionedSnapshot;
 import org.apache.iotdb.cluster.rpc.thrift.AppendEntriesRequest;
 import org.apache.iotdb.cluster.rpc.thrift.AppendEntryRequest;
 import org.apache.iotdb.cluster.rpc.thrift.Node;
@@ -62,11 +60,12 @@ public class CatchUpTaskTest {
   private boolean prevUseAsyncServer;
 
 
-  private RaftMember sender = new TestMetaGroupMember() {
-    @Override
-    public PartitionTable getPartitionTable() {
-      return new SlotPartitionTable(TestUtils.getNode(0));
-    }
+  private RaftMember sender = new TestDataGroupMember() {
+//    @Override
+//    public PartitionTable getPartitionTable() {
+//      return new SlotPartitionTable(TestUtils.getNode(0));
+//    }
+
 
     @Override
     public Client getSyncClient(Node node) {
@@ -117,6 +116,10 @@ public class CatchUpTaskTest {
         @Override
         public void sendSnapshot(SendSnapshotRequest request,
             AsyncMethodCallback<Void> resultHandler) {
+          System.out.println("111111111=" + request.getSnapshotBytes());
+          PartitionedSnapshot<FileSnapshot> snapshot = new PartitionedSnapshot<>(FileSnapshot::new);
+          snapshot.deserialize(ByteBuffer.wrap(request.getSnapshotBytes()));
+          System.out.println("222222222222=" + snapshot.toString());
           new Thread(() -> resultHandler.onComplete(null)).start();
         }
       };
@@ -265,7 +268,8 @@ public class CatchUpTaskTest {
       }
       sender.getLogManager().append(logList);
       sender.getLogManager().commitTo(9, false);
-      sender.getLogManager().setMaxHaveAppliedCommitIndex(sender.getLogManager().getCommitLogIndex());
+      sender.getLogManager()
+          .setMaxHaveAppliedCommitIndex(sender.getLogManager().getCommitLogIndex());
       Node receiver = new Node();
       sender.setCharacter(NodeCharacter.LEADER);
       Peer peer = new Peer(10);
@@ -292,7 +296,20 @@ public class CatchUpTaskTest {
     }
     sender.getLogManager().append(logList);
     sender.getLogManager().commitTo(9, false);
-    sender.getLogManager().setMaxHaveAppliedCommitIndex(sender.getLogManager().getCommitLogIndex());
+    // wait log is applied
+    long startTime = System.currentTimeMillis();
+    for (Log log : logList) {
+      while (!log.isApplied()) {
+        if ((System.currentTimeMillis() - startTime) > 60_000) {
+          System.out.println("apply log time out");
+          assertTrue(false);
+        }
+      }
+      System.out.println("apply log success");
+    }
+    long max = sender.getLogManager().getMaxHaveAppliedCommitIndex();
+    System.out.println("max=" + max);
+//    sender.getLogManager().setMaxHaveAppliedCommitIndex(sender.getLogManager().getCommitLogIndex());
     Node receiver = new Node();
     sender.setCharacter(NodeCharacter.LEADER);
     Peer peer = new Peer(10);
