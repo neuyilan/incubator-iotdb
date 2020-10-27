@@ -773,7 +773,7 @@ public abstract class RaftLogManager {
     this.committedEntryManager = committedEntryManager;
   }
 
-  private StableEntryManager getStableEntryManager() {
+  public StableEntryManager getStableEntryManager() {
     return stableEntryManager;
   }
 
