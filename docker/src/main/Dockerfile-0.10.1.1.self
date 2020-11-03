@@ -21,7 +21,11 @@ FROM openjdk:8
 RUN apt update \
   # procps is for `free` command
   && apt install wget unzip lsof procps -y \
-  && wget https://downloads.apache.org/iotdb/0.10.1-incubating/apache-iotdb-0.10.1-incubating-bin.zip \
+  # && wget https://www-us.apache.org/dist/incubator/iotdb/0.10.1-incubating/apache-iotdb-0.10.1-incubating-bin.zip \
+  # if you are in China, use the following URL
+  
+  && wget http://172.16.125.72:8000/apache-iotdb-0.10.1-incubating-bin.zip \
+  # && wget http://mirrors.tuna.tsinghua.edu.cn/apache/incubator/iotdb/0.10.1-incubating/apache-iotdb-0.10.1-incubating-bin.zip \
   && unzip apache-iotdb-0.10.1-incubating-bin.zip \
   && rm apache-iotdb-0.10.1-incubating-bin.zip \
   && mv apache-iotdb-0.10.1-incubating /iotdb \
