@@ -118,7 +118,9 @@ public class ClusterDescriptor {
         config.getSeedNodeUrls());
   }
 
-  /** load an property file and set TsfileDBConfig variables. */
+  /**
+   * load an property file and set TsfileDBConfig variables.
+   */
   private void loadProps() {
     String url = getPropsUrl();
     Properties properties = System.getProperties();
@@ -157,6 +159,10 @@ public class ClusterDescriptor {
                 "default_replica_num", String.valueOf(config.getReplicationNum()))));
 
     config.setClusterName(properties.getProperty("cluster_name", config.getClusterName()));
+
+    config.setProxyClientIp(properties.getProperty("proxy_client_ip", config.getProxyClientIp()));
+    config.setProxyPassword(properties.getProperty("proxy_password", config.getProxyPassword()));
+    config.setProxyUserName(properties.getProperty("proxy_user_name", config.getProxyUserName()));
 
     config.setRpcThriftCompressionEnabled(
         Boolean.parseBoolean(

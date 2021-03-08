@@ -34,18 +34,24 @@ public class ClusterConfig {
   private int internalDataPort = 40010;
   private int clusterRpcPort = IoTDBDescriptor.getInstance().getConfig().getRpcPort();
 
-  /** each one is a {internalIp | domain name}:{meta port} string tuple. */
+  /**
+   * each one is a {internalIp | domain name}:{meta port} string tuple.
+   */
   private List<String> seedNodeUrls =
       Arrays.asList(String.format("%s:%d", internalIp, internalMetaPort));
 
-  @ClusterConsistent private boolean isRpcThriftCompressionEnabled = false;
+  @ClusterConsistent
+  private boolean isRpcThriftCompressionEnabled = false;
   private int maxConcurrentClientNum = 10000;
 
-  @ClusterConsistent private int replicationNum = 3;
+  @ClusterConsistent
+  private int replicationNum = 3;
 
-  @ClusterConsistent private String clusterName = "default";
+  @ClusterConsistent
+  private String clusterName = "default";
 
-  @ClusterConsistent private boolean useAsyncServer = true;
+  @ClusterConsistent
+  private boolean useAsyncServer = true;
 
   private boolean useAsyncApplier = true;
 
@@ -59,16 +65,30 @@ public class ClusterConfig {
 
   private boolean useBatchInLogCatchUp = true;
 
-  /** max number of committed logs to be saved */
+  private String proxyClientIp = "127.0.0.1";
+
+  private String proxyUserName = "root";
+
+  private String proxyPassword = "root";
+
+  /**
+   * max number of committed logs to be saved
+   */
   private int minNumOfLogsInMem = 100;
 
-  /** max number of committed logs in memory */
+  /**
+   * max number of committed logs in memory
+   */
   private int maxNumOfLogsInMem = 1000;
 
-  /** deletion check period of the submitted log */
+  /**
+   * deletion check period of the submitted log
+   */
   private int logDeleteCheckIntervalSecond = -1;
 
-  /** max number of clients in a ClientPool of a member for one node. */
+  /**
+   * max number of clients in a ClientPool of a member for one node.
+   */
   private int maxClientPerNodePerMember = 1000;
 
   /**
@@ -129,7 +149,9 @@ public class ClusterConfig {
    */
   private int maxNumberOfPersistRaftLogFiles = 5;
 
-  /** The maximum number of logs saved on the disk */
+  /**
+   * The maximum number of logs saved on the disk
+   */
   private int maxPersistRaftLogNumberOnDisk = 1_000_000;
 
   private boolean enableUsePersistLogOnDiskToCatchUp = false;
@@ -268,6 +290,30 @@ public class ClusterConfig {
 
   public void setWriteOperationTimeoutMS(int writeOperationTimeoutMS) {
     this.writeOperationTimeoutMS = writeOperationTimeoutMS;
+  }
+
+  public String getProxyClientIp() {
+    return proxyClientIp;
+  }
+
+  public void setProxyClientIp(String proxyClientIp) {
+    this.proxyClientIp = proxyClientIp;
+  }
+
+  public String getProxyUserName() {
+    return proxyUserName;
+  }
+
+  public void setProxyUserName(String proxyUserName) {
+    this.proxyUserName = proxyUserName;
+  }
+
+  public String getProxyPassword() {
+    return proxyPassword;
+  }
+
+  public void setProxyPassword(String proxyPassword) {
+    this.proxyPassword = proxyPassword;
   }
 
   public int getMinNumOfLogsInMem() {
