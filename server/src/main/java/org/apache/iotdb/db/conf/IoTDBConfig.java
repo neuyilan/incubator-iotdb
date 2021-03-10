@@ -92,6 +92,12 @@ public class IoTDBConfig {
   /** max mqtt message size */
   private int mqttMaxMessageSize = 1048576;
 
+  private String proxyClientIp = "127.0.0.1";
+
+  private String proxyUserName = "root";
+
+  private String proxyPassword = "root";
+
   /** Rpc binding address. */
   private String rpcAddress = "0.0.0.0";
 
@@ -444,6 +450,7 @@ public class IoTDBConfig {
 
   /** How many threads will be set up to perform upgrade tasks. */
   private int upgradeThreadNum = 1;
+
 
   /** How many threads will be set up to perform main merge tasks. */
   private int mergeThreadNum = 1;
@@ -909,6 +916,30 @@ public class IoTDBConfig {
 
   public void setEnableDiscardOutOfOrderData(boolean enableDiscardOutOfOrderData) {
     this.enableDiscardOutOfOrderData = enableDiscardOutOfOrderData;
+  }
+
+  public String getProxyClientIp() {
+    return proxyClientIp;
+  }
+
+  public void setProxyClientIp(String proxyClientIp) {
+    this.proxyClientIp = proxyClientIp;
+  }
+
+  public String getProxyUserName() {
+    return proxyUserName;
+  }
+
+  public void setProxyUserName(String proxyUserName) {
+    this.proxyUserName = proxyUserName;
+  }
+
+  public String getProxyPassword() {
+    return proxyPassword;
+  }
+
+  public void setProxyPassword(String proxyPassword) {
+    this.proxyPassword = proxyPassword;
   }
 
   public int getFlushWalThreshold() {

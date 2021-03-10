@@ -89,7 +89,7 @@ statement
     | COUNT STORAGE GROUP prefixPath? #countStorageGroup
     | COUNT NODES prefixPath LEVEL OPERATOR_EQ INT #countNodes
     | LOAD CONFIGURATION (MINUS GLOBAL)? #loadConfigurationStatement
-    | LOAD stringLiteral autoCreateSchema?#loadFiles
+    | LOAD stringLiteral autoCreateSchema? sgLevel? loadUserName? loadPassword? #loadFiles
     | REMOVE stringLiteral #removeFile
     | MOVE stringLiteral stringLiteral #moveFile
     | DELETE PARTITION prefixPath INT(COMMA INT)* #deletePartition
@@ -693,6 +693,20 @@ autoCreateSchema
     : booleanClause
     | booleanClause INT
     ;
+
+sgLevel
+    : INT
+    ;
+
+loadUserName
+     : SINGLE_QUOTE_STRING_LITERAL
+     | DOUBLE_QUOTE_STRING_LITERAL
+     ;
+
+loadPassword
+     : SINGLE_QUOTE_STRING_LITERAL
+     | DOUBLE_QUOTE_STRING_LITERAL
+     ;
 
 triggerEventClause
     : (BEFORE | AFTER) INSERT

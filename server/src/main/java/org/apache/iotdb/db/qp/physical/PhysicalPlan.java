@@ -43,6 +43,7 @@ import org.apache.iotdb.db.qp.physical.sys.FlushPlan;
 import org.apache.iotdb.db.qp.physical.sys.LoadConfigurationPlan;
 import org.apache.iotdb.db.qp.physical.sys.MNodePlan;
 import org.apache.iotdb.db.qp.physical.sys.MeasurementMNodePlan;
+import org.apache.iotdb.db.qp.physical.sys.OperateFilePlan;
 import org.apache.iotdb.db.qp.physical.sys.SetStorageGroupPlan;
 import org.apache.iotdb.db.qp.physical.sys.SetTTLPlan;
 import org.apache.iotdb.db.qp.physical.sys.ShowDevicesPlan;
@@ -57,7 +58,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** This class is a abstract class for all type of PhysicalPlan. */
+/**
+ * This class is a abstract class for all type of PhysicalPlan.
+ */
 public abstract class PhysicalPlan {
 
   private static final String SERIALIZATION_UNIMPLEMENTED = "serialization unimplemented";
@@ -75,7 +78,9 @@ public abstract class PhysicalPlan {
   // a bridge from a cluster raft log to a physical plan
   protected long index;
 
-  /** whether the plan can be split into more than one Plans. Only used in the cluster mode. */
+  /**
+   * whether the plan can be split into more than one Plans. Only used in the cluster mode.
+   */
   public boolean canBeSplit() {
     return canBeSplit;
   }
@@ -95,7 +100,8 @@ public abstract class PhysicalPlan {
 
   public abstract List<PartialPath> getPaths();
 
-  public void setPaths(List<PartialPath> paths) {}
+  public void setPaths(List<PartialPath> paths) {
+  }
 
   public boolean isQuery() {
     return isQuery;
@@ -358,6 +364,10 @@ public abstract class PhysicalPlan {
           plan = new InsertRowsPlan();
           plan.deserialize(buffer);
           break;
+        case LOAD_FILES:
+          plan = new OperateFilePlan(OperatorType.LOAD_FILES);
+          plan.deserialize(buffer);
+          break;
         default:
           throw new IOException("unrecognized log type " + type);
       }
@@ -402,7 +412,8 @@ public abstract class PhysicalPlan {
     BATCH_INSERT_ONE_DEVICE,
     MULTI_BATCH_INSERT,
     BATCH_INSERT_ROWS,
-    SHOW_DEVICES
+    SHOW_DEVICES,
+    LOAD_FILES
   }
 
   public long getIndex() {
@@ -419,5 +430,6 @@ public abstract class PhysicalPlan {
    *
    * @throws QueryProcessException when the check fails
    */
-  public void checkIntegrity() throws QueryProcessException {}
+  public void checkIntegrity() throws QueryProcessException {
+  }
 }

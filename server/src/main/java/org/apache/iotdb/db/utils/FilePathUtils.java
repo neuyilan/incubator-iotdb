@@ -69,8 +69,7 @@ public class FilePathUtils {
    * accordingly. The sequence TsFile is located at ${IOTDB_DATA_DIR}/data/sequence/. The unsequence
    * TsFile is located at ${IOTDB_DATA_DIR}/data/unsequence/. Where different storage group's TsFile
    * is located at <logicalStorageGroupName>/<virtualStorageGroupName>/<timePartitionId>/<fileName>.
-   * For example, one sequence TsFile may locate at
-   * /data/data/sequence/root.group_9/0/0/1611199237113-4-0.tsfile
+   * For example, one sequence TsFile may locate at /data/data/sequence/root.group_9/0/0/1611199237113-4-0.tsfile
    *
    * @param resource the tsFileResource
    */
@@ -103,6 +102,12 @@ public class FilePathUtils {
         0, pathSegments[pathSegments.length - 1].lastIndexOf(TsFileConstant.PATH_SEPARATOR));
   }
 
+  public static String getTsFileNameWithoutHardLink(String tsFileAbsolutePath) {
+    String[] pathSegments = tsFileAbsolutePath.split(PATH_SPLIT_STRING);
+    return pathSegments[pathSegments.length - 1].substring(
+        0, pathSegments[pathSegments.length - 1].lastIndexOf(TsFileConstant.PATH_SEPARATOR));
+  }
+
   public static String getTsFilePrefixPath(TsFileResource resource) {
     String[] pathSegments = splitTsFilePath(resource);
     int pathLength = pathSegments.length;
@@ -130,7 +135,7 @@ public class FilePathUtils {
    * will return "root.sg.dh.*.s1"
    *
    * @param originalPath the original timeseries path
-   * @param pathLevel the expected path level
+   * @param pathLevel    the expected path level
    * @return result partial path
    */
   public static String generatePartialPathByLevel(String originalPath, int pathLevel)

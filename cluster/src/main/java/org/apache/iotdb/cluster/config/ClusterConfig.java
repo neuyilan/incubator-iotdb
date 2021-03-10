@@ -65,12 +65,6 @@ public class ClusterConfig {
 
   private boolean useBatchInLogCatchUp = true;
 
-  private String proxyClientIp = "127.0.0.1";
-
-  private String proxyUserName = "root";
-
-  private String proxyPassword = "root";
-
   /**
    * max number of committed logs to be saved
    */
@@ -290,30 +284,6 @@ public class ClusterConfig {
 
   public void setWriteOperationTimeoutMS(int writeOperationTimeoutMS) {
     this.writeOperationTimeoutMS = writeOperationTimeoutMS;
-  }
-
-  public String getProxyClientIp() {
-    return proxyClientIp;
-  }
-
-  public void setProxyClientIp(String proxyClientIp) {
-    this.proxyClientIp = proxyClientIp;
-  }
-
-  public String getProxyUserName() {
-    return proxyUserName;
-  }
-
-  public void setProxyUserName(String proxyUserName) {
-    this.proxyUserName = proxyUserName;
-  }
-
-  public String getProxyPassword() {
-    return proxyPassword;
-  }
-
-  public void setProxyPassword(String proxyPassword) {
-    this.proxyPassword = proxyPassword;
   }
 
   public int getMinNumOfLogsInMem() {

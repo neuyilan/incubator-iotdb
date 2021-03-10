@@ -19,16 +19,26 @@
 
 package org.apache.iotdb.cluster.query;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Iterator;
+import java.util.Random;
+import org.apache.iotdb.cluster.config.ClusterConfig;
+import org.apache.iotdb.cluster.config.ClusterDescriptor;
 import org.apache.iotdb.cluster.exception.UnsupportedPlanException;
 import org.apache.iotdb.cluster.partition.PartitionGroup;
 import org.apache.iotdb.cluster.partition.PartitionTable;
 import org.apache.iotdb.cluster.utils.PartitionUtils;
 import org.apache.iotdb.db.engine.StorageEngine;
+import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.exception.metadata.MetadataException;
 import org.apache.iotdb.db.exception.metadata.StorageGroupNotSetException;
 import org.apache.iotdb.db.metadata.MManager;
 import org.apache.iotdb.db.metadata.PartialPath;
+import org.apache.iotdb.db.qp.logical.Operator.OperatorType;
 import org.apache.iotdb.db.qp.physical.PhysicalPlan;
 import org.apache.iotdb.db.qp.physical.crud.InsertMultiTabletPlan;
 import org.apache.iotdb.db.qp.physical.crud.InsertRowPlan;
@@ -38,10 +48,14 @@ import org.apache.iotdb.db.qp.physical.sys.AlterTimeSeriesPlan;
 import org.apache.iotdb.db.qp.physical.sys.CountPlan;
 import org.apache.iotdb.db.qp.physical.sys.CreateMultiTimeSeriesPlan;
 import org.apache.iotdb.db.qp.physical.sys.CreateTimeSeriesPlan;
+import org.apache.iotdb.db.qp.physical.sys.OperateFilePlan;
 import org.apache.iotdb.db.qp.physical.sys.ShowChildPathsPlan;
 import org.apache.iotdb.db.qp.physical.sys.ShowPlan.ShowContentType;
 import org.apache.iotdb.db.service.IoTDB;
+import org.apache.iotdb.db.utils.FileLoaderUtils;
+import org.apache.iotdb.db.utils.RemoteFileLoad;
 import org.apache.iotdb.db.utils.TestOnly;
+import org.apache.iotdb.tsfile.common.constant.TsFileConstant;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import org.apache.iotdb.tsfile.utils.Binary;
 
@@ -60,6 +74,8 @@ public class ClusterPlanRouter {
   private static final Logger logger = LoggerFactory.getLogger(ClusterPlanRouter.class);
 
   private PartitionTable partitionTable;
+  private static final ClusterConfig config = ClusterDescriptor.getInstance().getConfig();
+  private static final Random random = new Random();
 
   public ClusterPlanRouter(PartitionTable partitionTable) {
     this.partitionTable = partitionTable;
@@ -128,6 +144,8 @@ public class ClusterPlanRouter {
       return splitAndRoutePlan((AlterTimeSeriesPlan) plan);
     } else if (plan instanceof CreateMultiTimeSeriesPlan) {
       return splitAndRoutePlan((CreateMultiTimeSeriesPlan) plan);
+    } else if (plan instanceof OperateFilePlan) {
+      return splitAndRoutePlan((OperateFilePlan) plan);
     }
     // the if clause can be removed after the program is stable
     if (PartitionUtils.isLocalNonQueryPlan(plan)) {
@@ -139,6 +157,93 @@ public class ClusterPlanRouter {
       logger.error("{} cannot be split. Please call routePlan", plan);
     }
     throw new UnsupportedPlanException(plan);
+  }
+
+  private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(OperateFilePlan plan)
+      throws MetadataException {
+    if (plan.getOperatorType() != OperatorType.LOAD_FILES) {
+      throw new MetadataException("Up to now, only load files operation is implemented");
+    }
+
+    String filePath = plan.getFile().getPath();
+    String[] arrLengths = filePath.split(":");
+
+    String newTsFilePath;
+    if (arrLengths.length > 1) {
+      String ip = arrLengths[0];
+      String remoteTsFilePath = arrLengths[1];
+      String[] tsFileNameArr = remoteTsFilePath.split(File.separator);
+      if (tsFileNameArr.length < 1) {
+        logger.error("split the tsfile name failed, tsFilePath={}", remoteTsFilePath);
+        throw new MetadataException("split the tsfile name failed");
+      }
+
+      String tsFileName = tsFileNameArr[tsFileNameArr.length - 1];
+      String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
+
+      String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
+
+      // load tsfile resource
+      RemoteFileLoad.loadRemoteFile(ip, remoteTsFileResourcePath, tsFileResourceName);
+
+      // load tsfile
+      newTsFilePath = RemoteFileLoad.loadRemoteFile(ip, remoteTsFilePath, tsFileName);
+    } else {
+      newTsFilePath = filePath;
+    }
+
+    if (newTsFilePath == null) {
+      throw new MetadataException("load file failed");
+    }
+    TsFileResource tsFileResource = new TsFileResource(new File(newTsFilePath));
+    try {
+      FileLoaderUtils.checkTsFileResource(tsFileResource);
+    } catch (IOException e) {
+      logger.error("check tsfile resource failed", e);
+    }
+
+    List<TsFileResource> tsFileResourceList = splitTsFile(tsFileResource);
+
+    Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
+    for (TsFileResource tmpTsFileResource : tsFileResourceList) {
+      Iterator<String> partialPathIterator = tmpTsFileResource.getDevices().iterator();
+      String deviceId = partialPathIterator.next();
+      PartitionGroup partitionGroup = partitionTable.partitionByPathTime(new PartialPath(deviceId),
+          tmpTsFileResource.getStartTime(deviceId));
+      OperateFilePlan operateFilePlan = new OperateFilePlan(tmpTsFileResource.getTsFile(),
+          OperatorType.LOAD_FILES, plan.isAutoCreateSchema(), plan.getSgLevel(), true,
+          config.getInternalIp());
+      result.put(operateFilePlan, partitionGroup);
+    }
+    return result;
+  }
+
+  //TODO MODFILE
+  private List<TsFileResource> splitTsFile(TsFileResource tsFileResource) {
+    List<TsFileResource> tsFileResourceList = new ArrayList<>();
+    boolean needSplitTsFile = needSplitTsFile(tsFileResource);
+    if (needSplitTsFile) {
+      //TODO qhl
+    } else {
+      tsFileResourceList.add(tsFileResource);
+    }
+
+    List<TsFileResource> result = new ArrayList<>();
+    // create hard link for those files
+    for (TsFileResource resource : tsFileResourceList) {
+      TsFileResource newTsFileResource = resource.createHardlink();
+      result.add(newTsFileResource);
+      try {
+        newTsFileResource.serialize();
+      } catch (IOException e) {
+        logger.error("serialize tsfile resource tailed", e);
+      }
+    }
+    return result;
+  }
+
+  private boolean needSplitTsFile(TsFileResource tsFileResource) {
+    return false;
   }
 
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertRowPlan plan)
@@ -163,7 +268,7 @@ public class ClusterPlanRouter {
   /**
    * @param plan InsertMultiTabletPlan
    * @return key is InsertMultiTabletPlan, value is the partition group the plan belongs to, all
-   *     InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
+   * InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertMultiTabletPlan plan)
       throws MetadataException {
@@ -234,7 +339,7 @@ public class ClusterPlanRouter {
   /**
    * @param insertRowsPlan InsertRowsPlan
    * @return key is InsertRowsPlan, value is the partition group the plan belongs to, all
-   *     InsertRowPlans in InsertRowsPlan belongs to one same storage group.
+   * InsertRowPlans in InsertRowsPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertRowsPlan insertRowsPlan)
       throws MetadataException {
@@ -310,7 +415,8 @@ public class ClusterPlanRouter {
       }
       long[] subTimes = new long[count];
       int destLoc = 0;
-      Object[] values = initTabletValues(plan.getMeasurements().length, count, plan.getDataTypes());
+      Object[] values = initTabletValues(plan.getMeasurements().length, count,
+          plan.getDataTypes());
       for (int i = 0; i < locs.size(); i += 2) {
         int start = locs.get(i);
         int end = locs.get(i + 1);

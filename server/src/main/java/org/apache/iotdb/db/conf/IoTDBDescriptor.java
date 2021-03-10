@@ -189,6 +189,10 @@ public class IoTDBDescriptor {
                   "storage_group_report_threshold",
                   Long.toString(conf.getStorageGroupSizeReportThreshold()))));
 
+      conf.setProxyClientIp(properties.getProperty("proxy_client_ip", conf.getProxyClientIp()));
+      conf.setProxyPassword(properties.getProperty("proxy_password", conf.getProxyPassword()));
+      conf.setProxyUserName(properties.getProperty("proxy_user_name", conf.getProxyUserName()));
+
       conf.setMetaDataCacheEnable(
           Boolean.parseBoolean(
               properties.getProperty(

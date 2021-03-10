@@ -118,6 +118,8 @@ import org.apache.iotdb.db.query.udf.service.UDFRegistrationService;
 import org.apache.iotdb.db.service.IoTDB;
 import org.apache.iotdb.db.utils.AuthUtils;
 import org.apache.iotdb.db.utils.FileLoaderUtils;
+import org.apache.iotdb.db.utils.FilePathUtils;
+import org.apache.iotdb.db.utils.RemoteFileLoad;
 import org.apache.iotdb.db.utils.UpgradeUtils;
 import org.apache.iotdb.rpc.RpcUtils;
 import org.apache.iotdb.rpc.TSStatusCode;
@@ -150,6 +152,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.iotdb.db.conf.IoTDBConstant.COLUMN_CANCELLED;
 import static org.apache.iotdb.db.conf.IoTDBConstant.COLUMN_CHILD_NODES;
@@ -189,6 +193,7 @@ import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFF
 @SuppressWarnings("java:S1135") // ignore todos
 public class PlanExecutor implements IPlanExecutor {
 
+  private static final Logger logger = LoggerFactory.getLogger(PlanExecutor.class);
   // for data query
   protected IQueryRouter queryRouter;
   // for administration
@@ -208,7 +213,7 @@ public class PlanExecutor implements IPlanExecutor {
   @Override
   public QueryDataSet processQuery(PhysicalPlan queryPlan, QueryContext context)
       throws IOException, StorageEngineException, QueryFilterOptimizationException,
-          QueryProcessException, MetadataException, InterruptedException {
+      QueryProcessException, MetadataException, InterruptedException {
     if (queryPlan instanceof QueryPlan) {
       return processDataQuery((QueryPlan) queryPlan, context);
     } else if (queryPlan instanceof AuthorPlan) {
@@ -304,7 +309,7 @@ public class PlanExecutor implements IPlanExecutor {
         TimePartitionFilter filter =
             (storageGroupName, partitionId) ->
                 storageGroupName.equals(
-                        ((DeletePartitionPlan) plan).getStorageGroupName().getFullPath())
+                    ((DeletePartitionPlan) plan).getStorageGroupName().getFullPath())
                     && p.getPartitionId().contains(partitionId);
         StorageEngine.getInstance()
             .removePartitions(((DeletePartitionPlan) plan).getStorageGroupName(), filter);
@@ -461,7 +466,7 @@ public class PlanExecutor implements IPlanExecutor {
 
   protected QueryDataSet processDataQuery(QueryPlan queryPlan, QueryContext context)
       throws StorageEngineException, QueryFilterOptimizationException, QueryProcessException,
-          IOException, InterruptedException {
+      IOException, InterruptedException {
     QueryDataSet queryDataSet;
     if (queryPlan instanceof AlignByDevicePlan) {
       queryDataSet = getAlignByDeviceDataSet((AlignByDevicePlan) queryPlan, context, queryRouter);
@@ -916,11 +921,34 @@ public class PlanExecutor implements IPlanExecutor {
     }
   }
 
+  private File dealWithLoadRemoteFile(OperateFilePlan plan) {
+    if (!plan.isRemoteFile()) {
+      return plan.getFile();
+    }
+
+    String remoteIp = plan.getRemoteIp();
+    String remoteTsFilePath = plan.getFile().getPath();
+    String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
+
+    String tsFileName = FilePathUtils.getTsFileNameWithoutHardLink(remoteTsFilePath);
+    String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
+
+    // load tsfile
+    String tsFilePath = RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFilePath, tsFileName);
+    if (tsFilePath != null) {
+      // load tsfile resource
+      RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFileResourcePath, tsFileResourceName);
+      return new File(tsFilePath);
+    } else {
+      return null;
+    }
+  }
+
   private void operateLoadFiles(OperateFilePlan plan) throws QueryProcessException {
-    File file = plan.getFile();
-    if (!file.exists()) {
+    File file = dealWithLoadRemoteFile(plan);
+    if (file == null || !file.exists()) {
       throw new QueryProcessException(
-          String.format("File path %s doesn't exists.", file.getPath()));
+          String.format("File path %s doesn't exists.", file == null ? null : file.getPath()));
     }
     if (file.isDirectory()) {
       recursionFileDir(file, plan);
@@ -929,6 +957,7 @@ public class PlanExecutor implements IPlanExecutor {
     }
   }
 
+  // TODO do not allow load one dir, just allow load one file in cluster version
   private void recursionFileDir(File curFile, OperateFilePlan plan) throws QueryProcessException {
     File[] files = curFile.listFiles();
     for (File file : files) {

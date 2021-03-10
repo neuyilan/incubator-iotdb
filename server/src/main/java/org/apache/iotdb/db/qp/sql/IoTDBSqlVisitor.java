@@ -952,11 +952,11 @@ public class IoTDBSqlVisitor extends SqlBaseBaseVisitor<Operator> {
   @Override
   public Operator visitLoadFiles(LoadFilesContext ctx) {
     if (ctx.autoCreateSchema() != null) {
-      if (ctx.autoCreateSchema().INT() != null) {
+      if (ctx.sgLevel().INT() != null) {
         return new LoadFilesOperator(
             new File(removeStringQuote(ctx.stringLiteral().getText())),
             Boolean.parseBoolean(ctx.autoCreateSchema().booleanClause().getText()),
-            Integer.parseInt(ctx.autoCreateSchema().INT().getText()));
+            Integer.parseInt(ctx.sgLevel().INT().getText()));
       } else {
         return new LoadFilesOperator(
             new File(removeStringQuote(ctx.stringLiteral().getText())),
@@ -1254,7 +1254,7 @@ public class IoTDBSqlVisitor extends SqlBaseBaseVisitor<Operator> {
       } else {
         selectOp.addSelectPath(
             new PartialPath(
-                new String[] {tableCallContext.SINGLE_QUOTE_STRING_LITERAL().getText()}));
+                new String[]{tableCallContext.SINGLE_QUOTE_STRING_LITERAL().getText()}));
         selectOp.addUdf(null);
       }
     }
@@ -1534,7 +1534,9 @@ public class IoTDBSqlVisitor extends SqlBaseBaseVisitor<Operator> {
     }
   }
 
-  /** parse datatype node. */
+  /**
+   * parse datatype node.
+   */
   private TSDataType parseType(String datatype) {
     String type = datatype.toLowerCase();
     switch (type) {
@@ -2068,7 +2070,9 @@ public class IoTDBSqlVisitor extends SqlBaseBaseVisitor<Operator> {
     return new PartialPath(path);
   }
 
-  /** function for parsing time format. */
+  /**
+   * function for parsing time format.
+   */
   public long parseTimeFormat(String timestampStr) throws SQLParserException {
     if (timestampStr == null || timestampStr.trim().equals("")) {
       throw new SQLParserException("input timestamp cannot be empty");
