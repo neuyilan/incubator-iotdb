@@ -33,6 +33,7 @@ import org.apache.iotdb.db.engine.cache.TimeSeriesMetadataCache;
 import org.apache.iotdb.db.engine.flush.pool.FlushTaskPoolManager;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager.TaskStatus;
+import org.apache.iotdb.db.engine.modification.ModificationFile;
 import org.apache.iotdb.db.engine.storagegroup.StorageGroupProcessor.TimePartitionFilter;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.exception.BatchProcessException;
@@ -938,6 +939,11 @@ public class PlanExecutor implements IPlanExecutor {
     if (tsFilePath != null) {
       // load tsfile resource
       RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFileResourcePath, tsFileResourceName);
+
+      // try load mods
+      String remoteModFileName = tsFileName + ModificationFile.FILE_SUFFIX;
+      String remoteModFilePath = remoteModFileName + ModificationFile.FILE_SUFFIX;
+      RemoteFileLoad.loadRemoteFile(remoteIp, remoteModFilePath, remoteModFileName);
       return new File(tsFilePath);
     } else {
       return null;

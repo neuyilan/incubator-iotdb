@@ -32,6 +32,7 @@ import org.apache.iotdb.cluster.partition.PartitionGroup;
 import org.apache.iotdb.cluster.partition.PartitionTable;
 import org.apache.iotdb.cluster.utils.PartitionUtils;
 import org.apache.iotdb.db.engine.StorageEngine;
+import org.apache.iotdb.db.engine.modification.ModificationFile;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.exception.metadata.MetadataException;
@@ -182,12 +183,17 @@ public class ClusterPlanRouter {
       String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
 
       String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
-
       // load tsfile resource
       RemoteFileLoad.loadRemoteFile(ip, remoteTsFileResourcePath, tsFileResourceName);
 
       // load tsfile
       newTsFilePath = RemoteFileLoad.loadRemoteFile(ip, remoteTsFilePath, tsFileName);
+
+      // if modfile exist, try to load it
+      String modFileName = tsFileName + ModificationFile.FILE_SUFFIX;
+      String modFilePath = remoteTsFilePath + ModificationFile.FILE_SUFFIX;
+      //TODO first to see whether the modfile exist or not, if not, we will not load it
+      RemoteFileLoad.loadRemoteFile(ip, modFilePath, modFileName);
     } else {
       newTsFilePath = filePath;
     }
@@ -202,12 +208,14 @@ public class ClusterPlanRouter {
       logger.error("check tsfile resource failed", e);
     }
 
+    // TODO split the tsfile according to different time partition
     List<TsFileResource> tsFileResourceList = splitTsFile(tsFileResource);
 
     Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
     for (TsFileResource tmpTsFileResource : tsFileResourceList) {
       Iterator<String> partialPathIterator = tmpTsFileResource.getDevices().iterator();
       String deviceId = partialPathIterator.next();
+      // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to one time partition
       PartitionGroup partitionGroup = partitionTable.partitionByPathTime(new PartialPath(deviceId),
           tmpTsFileResource.getStartTime(deviceId));
       OperateFilePlan operateFilePlan = new OperateFilePlan(tmpTsFileResource.getTsFile(),
