@@ -34,7 +34,6 @@ import org.apache.iotdb.db.qp.physical.sys.LoadConfigurationPlan;
 import org.apache.iotdb.db.qp.physical.sys.LoadConfigurationPlan.LoadConfigurationPlanType;
 import org.apache.iotdb.db.qp.physical.sys.LoadDataPlan;
 import org.apache.iotdb.db.qp.physical.sys.MergePlan;
-import org.apache.iotdb.db.qp.physical.sys.OperateFilePlan;
 import org.apache.iotdb.db.qp.physical.sys.SetStorageGroupPlan;
 import org.apache.iotdb.db.qp.physical.sys.SetTTLPlan;
 import org.apache.iotdb.db.qp.physical.sys.ShowTTLPlan;
@@ -74,9 +73,9 @@ public class PartitionUtils {
   public static boolean isLocalNonQueryPlan(PhysicalPlan plan) {
     return plan instanceof LoadDataPlan
         || (plan instanceof LoadConfigurationPlan
-        && ((LoadConfigurationPlan) plan)
-        .getLoadConfigurationPlanType()
-        .equals(LoadConfigurationPlanType.LOCAL));
+            && ((LoadConfigurationPlan) plan)
+                .getLoadConfigurationPlanType()
+                .equals(LoadConfigurationPlanType.LOCAL));
   }
 
   /**
@@ -90,9 +89,9 @@ public class PartitionUtils {
         || plan instanceof SetTTLPlan
         || plan instanceof ShowTTLPlan
         || (plan instanceof LoadConfigurationPlan
-        && ((LoadConfigurationPlan) plan)
-        .getLoadConfigurationPlanType()
-        .equals(LoadConfigurationPlanType.GLOBAL))
+            && ((LoadConfigurationPlan) plan)
+                .getLoadConfigurationPlanType()
+                .equals(LoadConfigurationPlanType.GLOBAL))
         || plan instanceof AuthorPlan
         || plan instanceof DeleteStorageGroupPlan
         // DataAuthPlan is global because all nodes must have all user info
@@ -107,11 +106,11 @@ public class PartitionUtils {
    */
   public static boolean isGlobalDataPlan(PhysicalPlan plan) {
     return
-        // because deletePlan has an infinite time range.
-        plan instanceof DeletePlan
-            || plan instanceof DeleteTimeSeriesPlan
-            || plan instanceof MergePlan
-            || plan instanceof FlushPlan;
+    // because deletePlan has an infinite time range.
+    plan instanceof DeletePlan
+        || plan instanceof DeleteTimeSeriesPlan
+        || plan instanceof MergePlan
+        || plan instanceof FlushPlan;
   }
 
   public static int calculateStorageGroupSlotByTime(
@@ -205,9 +204,7 @@ public class PartitionUtils {
     return Intervals.ALL_INTERVAL;
   }
 
-  /**
-   * All intervals are closed.
-   */
+  /** All intervals are closed. */
   public static class Intervals extends ArrayList<Long> {
 
     static final Intervals ALL_INTERVAL = new Intervals(Long.MIN_VALUE, Long.MAX_VALUE);

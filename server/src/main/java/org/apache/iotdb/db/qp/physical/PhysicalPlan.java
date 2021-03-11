@@ -58,9 +58,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * This class is a abstract class for all type of PhysicalPlan.
- */
+/** This class is a abstract class for all type of PhysicalPlan. */
 public abstract class PhysicalPlan {
 
   private static final String SERIALIZATION_UNIMPLEMENTED = "serialization unimplemented";
@@ -78,9 +76,7 @@ public abstract class PhysicalPlan {
   // a bridge from a cluster raft log to a physical plan
   protected long index;
 
-  /**
-   * whether the plan can be split into more than one Plans. Only used in the cluster mode.
-   */
+  /** whether the plan can be split into more than one Plans. Only used in the cluster mode. */
   public boolean canBeSplit() {
     return canBeSplit;
   }
@@ -100,8 +96,7 @@ public abstract class PhysicalPlan {
 
   public abstract List<PartialPath> getPaths();
 
-  public void setPaths(List<PartialPath> paths) {
-  }
+  public void setPaths(List<PartialPath> paths) {}
 
   public boolean isQuery() {
     return isQuery;
@@ -430,6 +425,5 @@ public abstract class PhysicalPlan {
    *
    * @throws QueryProcessException when the check fails
    */
-  public void checkIntegrity() throws QueryProcessException {
-  }
+  public void checkIntegrity() throws QueryProcessException {}
 }

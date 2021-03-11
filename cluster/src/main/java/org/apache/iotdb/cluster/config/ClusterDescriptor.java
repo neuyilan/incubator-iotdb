@@ -118,9 +118,7 @@ public class ClusterDescriptor {
         config.getSeedNodeUrls());
   }
 
-  /**
-   * load an property file and set TsfileDBConfig variables.
-   */
+  /** load an property file and set TsfileDBConfig variables. */
   private void loadProps() {
     String url = getPropsUrl();
     Properties properties = System.getProperties();

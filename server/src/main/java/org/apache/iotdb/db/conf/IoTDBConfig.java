@@ -451,7 +451,6 @@ public class IoTDBConfig {
   /** How many threads will be set up to perform upgrade tasks. */
   private int upgradeThreadNum = 1;
 
-
   /** How many threads will be set up to perform main merge tasks. */
   private int mergeThreadNum = 1;
 

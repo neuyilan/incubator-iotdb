@@ -18,19 +18,18 @@
  */
 package org.apache.iotdb.db.qp.physical.sys;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Objects;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.metadata.PartialPath;
 import org.apache.iotdb.db.qp.logical.Operator.OperatorType;
 import org.apache.iotdb.db.qp.physical.PhysicalPlan;
 
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 public class OperateFilePlan extends PhysicalPlan {
 
@@ -59,8 +58,12 @@ public class OperateFilePlan extends PhysicalPlan {
   }
 
   public OperateFilePlan(
-      File file, OperatorType operatorType, boolean autoCreateSchema, int sgLevel,
-      boolean isRemoteFile, String remoteIp) {
+      File file,
+      OperatorType operatorType,
+      boolean autoCreateSchema,
+      int sgLevel,
+      boolean isRemoteFile,
+      String remoteIp) {
     this(file, operatorType, autoCreateSchema, sgLevel);
     this.isRemoteFile = isRemoteFile;
     this.remoteIp = remoteIp;
@@ -131,7 +134,7 @@ public class OperateFilePlan extends PhysicalPlan {
     }
   }
 
-  //TODO
+  // TODO
   private int getType(OperatorType operatorType) {
     switch (operatorType) {
       case LOAD_FILES:
@@ -202,12 +205,19 @@ public class OperateFilePlan extends PhysicalPlan {
   @Override
   public String toString() {
     return "OperateFilePlan{"
-        + " file=" + file
-        + ", targetDir=" + targetDir
-        + ", autoCreateSchema=" + autoCreateSchema
-        + ", sgLevel=" + sgLevel
-        + ", isRemoteFile=" + isRemoteFile
-        + ", remoteIp='" + remoteIp + '\''
+        + " file="
+        + file
+        + ", targetDir="
+        + targetDir
+        + ", autoCreateSchema="
+        + autoCreateSchema
+        + ", sgLevel="
+        + sgLevel
+        + ", isRemoteFile="
+        + isRemoteFile
+        + ", remoteIp='"
+        + remoteIp
+        + '\''
         + "}";
   }
 

@@ -19,12 +19,6 @@
 
 package org.apache.iotdb.cluster.query;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Iterator;
-import java.util.Random;
 import org.apache.iotdb.cluster.config.ClusterConfig;
 import org.apache.iotdb.cluster.config.ClusterDescriptor;
 import org.apache.iotdb.cluster.exception.UnsupportedPlanException;
@@ -56,19 +50,22 @@ import org.apache.iotdb.db.service.IoTDB;
 import org.apache.iotdb.db.utils.FileLoaderUtils;
 import org.apache.iotdb.db.utils.RemoteFileLoad;
 import org.apache.iotdb.db.utils.TestOnly;
-import org.apache.iotdb.tsfile.common.constant.TsFileConstant;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import org.apache.iotdb.tsfile.utils.Binary;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 
 public class ClusterPlanRouter {
 
@@ -192,7 +189,7 @@ public class ClusterPlanRouter {
       // if modfile exist, try to load it
       String modFileName = tsFileName + ModificationFile.FILE_SUFFIX;
       String modFilePath = remoteTsFilePath + ModificationFile.FILE_SUFFIX;
-      //TODO first to see whether the modfile exist or not, if not, we will not load it
+      // TODO first to see whether the modfile exist or not, if not, we will not load it
       RemoteFileLoad.loadRemoteFile(ip, modFilePath, modFileName);
     } else {
       newTsFilePath = filePath;
@@ -215,23 +212,30 @@ public class ClusterPlanRouter {
     for (TsFileResource tmpTsFileResource : tsFileResourceList) {
       Iterator<String> partialPathIterator = tmpTsFileResource.getDevices().iterator();
       String deviceId = partialPathIterator.next();
-      // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to one time partition
-      PartitionGroup partitionGroup = partitionTable.partitionByPathTime(new PartialPath(deviceId),
-          tmpTsFileResource.getStartTime(deviceId));
-      OperateFilePlan operateFilePlan = new OperateFilePlan(tmpTsFileResource.getTsFile(),
-          OperatorType.LOAD_FILES, plan.isAutoCreateSchema(), plan.getSgLevel(), true,
-          config.getInternalIp());
+      // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to
+      // one time partition
+      PartitionGroup partitionGroup =
+          partitionTable.partitionByPathTime(
+              new PartialPath(deviceId), tmpTsFileResource.getStartTime(deviceId));
+      OperateFilePlan operateFilePlan =
+          new OperateFilePlan(
+              tmpTsFileResource.getTsFile(),
+              OperatorType.LOAD_FILES,
+              plan.isAutoCreateSchema(),
+              plan.getSgLevel(),
+              true,
+              config.getInternalIp());
       result.put(operateFilePlan, partitionGroup);
     }
     return result;
   }
 
-  //TODO MODFILE
+  // TODO MODFILE
   private List<TsFileResource> splitTsFile(TsFileResource tsFileResource) {
     List<TsFileResource> tsFileResourceList = new ArrayList<>();
     boolean needSplitTsFile = needSplitTsFile(tsFileResource);
     if (needSplitTsFile) {
-      //TODO qhl
+      // TODO qhl
     } else {
       tsFileResourceList.add(tsFileResource);
     }
@@ -276,7 +280,7 @@ public class ClusterPlanRouter {
   /**
    * @param plan InsertMultiTabletPlan
    * @return key is InsertMultiTabletPlan, value is the partition group the plan belongs to, all
-   * InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
+   *     InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertMultiTabletPlan plan)
       throws MetadataException {
@@ -347,7 +351,7 @@ public class ClusterPlanRouter {
   /**
    * @param insertRowsPlan InsertRowsPlan
    * @return key is InsertRowsPlan, value is the partition group the plan belongs to, all
-   * InsertRowPlans in InsertRowsPlan belongs to one same storage group.
+   *     InsertRowPlans in InsertRowsPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertRowsPlan insertRowsPlan)
       throws MetadataException {
@@ -423,8 +427,7 @@ public class ClusterPlanRouter {
       }
       long[] subTimes = new long[count];
       int destLoc = 0;
-      Object[] values = initTabletValues(plan.getMeasurements().length, count,
-          plan.getDataTypes());
+      Object[] values = initTabletValues(plan.getMeasurements().length, count, plan.getDataTypes());
       for (int i = 0; i < locs.size(); i += 2) {
         int start = locs.get(i);
         int end = locs.get(i + 1);
