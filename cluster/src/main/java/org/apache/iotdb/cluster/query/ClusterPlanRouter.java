@@ -25,9 +25,11 @@ import org.apache.iotdb.cluster.exception.UnsupportedPlanException;
 import org.apache.iotdb.cluster.partition.PartitionGroup;
 import org.apache.iotdb.cluster.partition.PartitionTable;
 import org.apache.iotdb.cluster.utils.PartitionUtils;
+import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.StorageEngine;
 import org.apache.iotdb.db.engine.modification.ModificationFile;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
+import org.apache.iotdb.db.exception.PartitionViolationException;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.exception.metadata.MetadataException;
 import org.apache.iotdb.db.exception.metadata.StorageGroupNotSetException;
@@ -73,7 +75,8 @@ public class ClusterPlanRouter {
 
   private PartitionTable partitionTable;
   private static final ClusterConfig config = ClusterDescriptor.getInstance().getConfig();
-  private static final Random random = new Random();
+  private static boolean enablePartition =
+      IoTDBDescriptor.getInstance().getConfig().isEnablePartition();
 
   public ClusterPlanRouter(PartitionTable partitionTable) {
     this.partitionTable = partitionTable;
@@ -205,42 +208,35 @@ public class ClusterPlanRouter {
       logger.error("check tsfile resource failed", e);
     }
 
-    // TODO split the tsfile according to different time partition
-    List<TsFileResource> tsFileResourceList = splitTsFile(tsFileResource);
+    boolean needSplitTsFile = needSplitTsFile(tsFileResource);
+    if (needSplitTsFile) {
+      // Instead of constructing an OperateFilePlan, use an interface that inserts data.
+      return splitTsFile(tsFileResource);
+    }
 
     Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
-    for (TsFileResource tmpTsFileResource : tsFileResourceList) {
-      Iterator<String> partialPathIterator = tmpTsFileResource.getDevices().iterator();
-      String deviceId = partialPathIterator.next();
-      // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to
-      // one time partition
-      PartitionGroup partitionGroup =
-          partitionTable.partitionByPathTime(
-              new PartialPath(deviceId), tmpTsFileResource.getStartTime(deviceId));
-      OperateFilePlan operateFilePlan =
-          new OperateFilePlan(
-              tmpTsFileResource.getTsFile(),
-              OperatorType.LOAD_FILES,
-              plan.isAutoCreateSchema(),
-              plan.getSgLevel(),
-              true,
-              config.getInternalIp());
-      result.put(operateFilePlan, partitionGroup);
-    }
+    Iterator<String> partialPathIterator = tsFileResource.getDevices().iterator();
+    String deviceId = partialPathIterator.next();
+    // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to
+    // one time partition
+    PartitionGroup partitionGroup =
+        partitionTable.partitionByPathTime(
+            new PartialPath(deviceId), tsFileResource.getStartTime(deviceId));
+    OperateFilePlan operateFilePlan =
+        new OperateFilePlan(
+            tsFileResource.getTsFile(),
+            OperatorType.LOAD_FILES,
+            plan.isAutoCreateSchema(),
+            plan.getSgLevel(),
+            true,
+            config.getInternalIp());
+    result.put(operateFilePlan, partitionGroup);
     return result;
   }
 
   // TODO MODFILE
-  private List<TsFileResource> splitTsFile(TsFileResource tsFileResource) {
-    List<TsFileResource> tsFileResourceList = new ArrayList<>();
-    boolean needSplitTsFile = needSplitTsFile(tsFileResource);
-    if (needSplitTsFile) {
-      // TODO qhl
-    } else {
-      tsFileResourceList.add(tsFileResource);
-    }
-
-    List<TsFileResource> result = new ArrayList<>();
+  private Map<PhysicalPlan, PartitionGroup> splitTsFile(TsFileResource tsFileResource) {
+    Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
     // create hard link for those files
     for (TsFileResource resource : tsFileResourceList) {
       TsFileResource newTsFileResource = resource.createHardlink();
@@ -248,13 +244,27 @@ public class ClusterPlanRouter {
       try {
         newTsFileResource.serialize();
       } catch (IOException e) {
-        logger.error("serialize tsfile resource tailed", e);
+        logger.error("serialize tsfile resource failed", e);
       }
     }
     return result;
   }
 
+  /**
+   * check wether the tsfile need to be split or not, if the tsfile's data cross multi time
+   * partitions, which is need to be split.
+   */
   private boolean needSplitTsFile(TsFileResource tsFileResource) {
+    if (!enablePartition) {
+      return false;
+    }
+    try {
+      tsFileResource.getTimePartitionWithCheck();
+    } catch (PartitionViolationException e) {
+      logger.error("tsFile={} cross multi partitions, should be split",
+          tsFileResource.getTsFile().getPath());
+      return true;
+    }
     return false;
   }
 
@@ -280,7 +290,7 @@ public class ClusterPlanRouter {
   /**
    * @param plan InsertMultiTabletPlan
    * @return key is InsertMultiTabletPlan, value is the partition group the plan belongs to, all
-   *     InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
+   * InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertMultiTabletPlan plan)
       throws MetadataException {
@@ -351,7 +361,7 @@ public class ClusterPlanRouter {
   /**
    * @param insertRowsPlan InsertRowsPlan
    * @return key is InsertRowsPlan, value is the partition group the plan belongs to, all
-   *     InsertRowPlans in InsertRowsPlan belongs to one same storage group.
+   * InsertRowPlans in InsertRowsPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertRowsPlan insertRowsPlan)
       throws MetadataException {
