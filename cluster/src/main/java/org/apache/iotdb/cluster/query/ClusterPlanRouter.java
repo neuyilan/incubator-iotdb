@@ -209,44 +209,40 @@ public class ClusterPlanRouter {
     }
 
     boolean needSplitTsFile = needSplitTsFile(tsFileResource);
+    List<TsFileResource> resourceList = new ArrayList<>();
     if (needSplitTsFile) {
       // Instead of constructing an OperateFilePlan, use an interface that inserts data.
-      return splitTsFile(tsFileResource);
+      resourceList = splitTsFile(tsFileResource);
+    } else {
+      resourceList.add(tsFileResource);
     }
 
     Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
-    Iterator<String> partialPathIterator = tsFileResource.getDevices().iterator();
-    String deviceId = partialPathIterator.next();
-    // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to
-    // one time partition
-    PartitionGroup partitionGroup =
-        partitionTable.partitionByPathTime(
-            new PartialPath(deviceId), tsFileResource.getStartTime(deviceId));
-    OperateFilePlan operateFilePlan =
-        new OperateFilePlan(
-            tsFileResource.getTsFile(),
-            OperatorType.LOAD_FILES,
-            plan.isAutoCreateSchema(),
-            plan.getSgLevel(),
-            true,
-            config.getInternalIp());
-    result.put(operateFilePlan, partitionGroup);
+
+    for (TsFileResource resource : resourceList) {
+      Iterator<String> partialPathIterator = resource.getDevices().iterator();
+      String deviceId = partialPathIterator.next();
+      // we can ensure that after the split tsfile operation, the tmpTsFileResource only belong to
+      // one time partition
+      PartitionGroup partitionGroup =
+          partitionTable.partitionByPathTime(
+              new PartialPath(deviceId), resource.getStartTime(deviceId));
+      OperateFilePlan operateFilePlan =
+          new OperateFilePlan(
+              resource.getTsFile(),
+              OperatorType.LOAD_FILES,
+              plan.isAutoCreateSchema(),
+              plan.getSgLevel(),
+              true,
+              config.getInternalIp());
+      result.put(operateFilePlan, partitionGroup);
+    }
     return result;
   }
 
   // TODO MODFILE
-  private Map<PhysicalPlan, PartitionGroup> splitTsFile(TsFileResource tsFileResource) {
-    Map<PhysicalPlan, PartitionGroup> result = new HashMap<>();
-    // create hard link for those files
-    for (TsFileResource resource : tsFileResourceList) {
-      TsFileResource newTsFileResource = resource.createHardlink();
-      result.add(newTsFileResource);
-      try {
-        newTsFileResource.serialize();
-      } catch (IOException e) {
-        logger.error("serialize tsfile resource failed", e);
-      }
-    }
+  private List<TsFileResource> splitTsFile(TsFileResource tsFileResource) {
+    List<TsFileResource> result = new ArrayList<>();
     return result;
   }
 
