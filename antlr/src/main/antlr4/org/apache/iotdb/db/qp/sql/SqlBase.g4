@@ -89,7 +89,7 @@ statement
     | COUNT STORAGE GROUP prefixPath? #countStorageGroup
     | COUNT NODES prefixPath LEVEL OPERATOR_EQ INT #countNodes
     | LOAD CONFIGURATION (MINUS GLOBAL)? #loadConfigurationStatement
-    | LOAD stringLiteral autoCreateSchema? sgLevel? loadUserName? loadPassword? #loadFiles
+    | LOAD stringLiteral autoCreateSchema?#loadFiles
     | REMOVE stringLiteral #removeFile
     | MOVE stringLiteral stringLiteral #moveFile
     | DELETE PARTITION prefixPath INT(COMMA INT)* #deletePartition

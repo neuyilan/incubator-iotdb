@@ -50,6 +50,7 @@ import org.apache.iotdb.db.qp.physical.sys.ShowChildPathsPlan;
 import org.apache.iotdb.db.qp.physical.sys.ShowPlan.ShowContentType;
 import org.apache.iotdb.db.service.IoTDB;
 import org.apache.iotdb.db.utils.FileLoaderUtils;
+import org.apache.iotdb.db.utils.FilePathUtils;
 import org.apache.iotdb.db.utils.RemoteFileLoad;
 import org.apache.iotdb.db.utils.TestOnly;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
@@ -67,7 +68,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
 
 public class ClusterPlanRouter {
 
@@ -173,13 +173,7 @@ public class ClusterPlanRouter {
     if (arrLengths.length > 1) {
       String ip = arrLengths[0];
       String remoteTsFilePath = arrLengths[1];
-      String[] tsFileNameArr = remoteTsFilePath.split(File.separator);
-      if (tsFileNameArr.length < 1) {
-        logger.error("split the tsfile name failed, tsFilePath={}", remoteTsFilePath);
-        throw new MetadataException("split the tsfile name failed");
-      }
-
-      String tsFileName = tsFileNameArr[tsFileNameArr.length - 1];
+      String tsFileName = FilePathUtils.getTsFileName(remoteTsFilePath);
       String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
 
       String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
@@ -257,7 +251,8 @@ public class ClusterPlanRouter {
     try {
       tsFileResource.getTimePartitionWithCheck();
     } catch (PartitionViolationException e) {
-      logger.error("tsFile={} cross multi partitions, should be split",
+      logger.error(
+          "tsFile={} cross multi partitions, should be split",
           tsFileResource.getTsFile().getPath());
       return true;
     }
@@ -286,7 +281,7 @@ public class ClusterPlanRouter {
   /**
    * @param plan InsertMultiTabletPlan
    * @return key is InsertMultiTabletPlan, value is the partition group the plan belongs to, all
-   * InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
+   *     InsertTabletPlans in InsertMultiTabletPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertMultiTabletPlan plan)
       throws MetadataException {
@@ -357,7 +352,7 @@ public class ClusterPlanRouter {
   /**
    * @param insertRowsPlan InsertRowsPlan
    * @return key is InsertRowsPlan, value is the partition group the plan belongs to, all
-   * InsertRowPlans in InsertRowsPlan belongs to one same storage group.
+   *     InsertRowPlans in InsertRowsPlan belongs to one same storage group.
    */
   private Map<PhysicalPlan, PartitionGroup> splitAndRoutePlan(InsertRowsPlan insertRowsPlan)
       throws MetadataException {

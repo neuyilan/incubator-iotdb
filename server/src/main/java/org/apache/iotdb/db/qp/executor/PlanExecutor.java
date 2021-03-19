@@ -932,7 +932,7 @@ public class PlanExecutor implements IPlanExecutor {
     String remoteTsFilePath = plan.getFile().getPath();
     String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
 
-    String tsFileName = FilePathUtils.getTsFileNameWithoutHardLink(remoteTsFilePath);
+    String tsFileName = FilePathUtils.getTsFileName(remoteTsFilePath);
     String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
 
     // load tsfile
@@ -943,7 +943,7 @@ public class PlanExecutor implements IPlanExecutor {
 
       // try load mods
       String remoteModFileName = tsFileName + ModificationFile.FILE_SUFFIX;
-      String remoteModFilePath = remoteModFileName + ModificationFile.FILE_SUFFIX;
+      String remoteModFilePath = remoteTsFilePath + ModificationFile.FILE_SUFFIX;
       RemoteFileLoad.loadRemoteFile(remoteIp, remoteModFilePath, remoteModFileName);
       return new File(tsFilePath);
     } else {
@@ -957,6 +957,7 @@ public class PlanExecutor implements IPlanExecutor {
       throw new QueryProcessException(
           String.format("File path %s doesn't exists.", file == null ? null : file.getPath()));
     }
+    logger.debug("after deal with load remote file, the load file={}", file.getAbsolutePath());
     if (file.isDirectory()) {
       recursionFileDir(file, plan);
     } else {

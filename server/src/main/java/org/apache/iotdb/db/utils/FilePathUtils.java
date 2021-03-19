@@ -103,10 +103,9 @@ public class FilePathUtils {
         0, pathSegments[pathSegments.length - 1].lastIndexOf(TsFileConstant.PATH_SEPARATOR));
   }
 
-  public static String getTsFileNameWithoutHardLink(String tsFileAbsolutePath) {
+  public static String getTsFileName(String tsFileAbsolutePath) {
     String[] pathSegments = tsFileAbsolutePath.split(PATH_SPLIT_STRING);
-    return pathSegments[pathSegments.length - 1].substring(
-        0, pathSegments[pathSegments.length - 1].lastIndexOf(TsFileConstant.PATH_SEPARATOR));
+    return pathSegments[pathSegments.length - 1];
   }
 
   public static String getTsFilePrefixPath(TsFileResource resource) {

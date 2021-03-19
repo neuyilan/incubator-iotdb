@@ -952,11 +952,11 @@ public class IoTDBSqlVisitor extends SqlBaseBaseVisitor<Operator> {
   @Override
   public Operator visitLoadFiles(LoadFilesContext ctx) {
     if (ctx.autoCreateSchema() != null) {
-      if (ctx.sgLevel().INT() != null) {
+      if (ctx.autoCreateSchema().INT() != null) {
         return new LoadFilesOperator(
             new File(removeStringQuote(ctx.stringLiteral().getText())),
             Boolean.parseBoolean(ctx.autoCreateSchema().booleanClause().getText()),
-            Integer.parseInt(ctx.sgLevel().INT().getText()));
+            Integer.parseInt(ctx.autoCreateSchema().INT().getText()));
       } else {
         return new LoadFilesOperator(
             new File(removeStringQuote(ctx.stringLiteral().getText())),
