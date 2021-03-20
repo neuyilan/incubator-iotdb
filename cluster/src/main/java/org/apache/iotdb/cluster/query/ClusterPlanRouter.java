@@ -174,20 +174,23 @@ public class ClusterPlanRouter {
       String ip = arrLengths[0];
       String remoteTsFilePath = arrLengths[1];
       String tsFileName = FilePathUtils.getTsFileName(remoteTsFilePath);
+      // the tsfile prefix path: /sg/virtual_sg/partition/
+      String folder = FilePathUtils.getTsFilePrefixPath(remoteTsFilePath);
+
       String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
 
       String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
       // load tsfile resource
-      RemoteFileLoad.loadRemoteFile(ip, remoteTsFileResourcePath, tsFileResourceName);
+      RemoteFileLoad.loadRemoteFile(ip, remoteTsFileResourcePath, tsFileResourceName, folder);
 
       // load tsfile
-      newTsFilePath = RemoteFileLoad.loadRemoteFile(ip, remoteTsFilePath, tsFileName);
+      newTsFilePath = RemoteFileLoad.loadRemoteFile(ip, remoteTsFilePath, tsFileName, folder);
 
       // if modfile exist, try to load it
       String modFileName = tsFileName + ModificationFile.FILE_SUFFIX;
       String modFilePath = remoteTsFilePath + ModificationFile.FILE_SUFFIX;
       // TODO first to see whether the modfile exist or not, if not, we will not load it
-      RemoteFileLoad.loadRemoteFile(ip, modFilePath, modFileName);
+      RemoteFileLoad.loadRemoteFile(ip, modFilePath, modFileName, folder);
     } else {
       newTsFilePath = filePath;
     }

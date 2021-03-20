@@ -38,8 +38,8 @@ public class RemoteFileLoad {
   private static final String LOAD_FILES_FOLDER =
       IoTDBDescriptor.getInstance().getConfig().getSystemDir() + File.separator + "loads";
 
-  public static String loadRemoteFile(String remotePath, String fileName) {
-    return loadRemoteFile(config.getProxyClientIp(), remotePath, fileName);
+  public static String loadRemoteFile(String remotePath, String fileName, String folder) {
+    return loadRemoteFile(config.getProxyClientIp(), remotePath, fileName, folder);
   }
 
   private static void createIfFileAbsent(File file) {
@@ -54,14 +54,15 @@ public class RemoteFileLoad {
     }
   }
 
-  public static String loadRemoteFile(String ip, String remotePath, String fileName) {
+  public static String loadRemoteFile(
+      String ip, String remotePath, String fileName, String folder) {
     SSHClient ssh = new SSHClient();
     String result = null;
     try {
       ssh.addHostKeyVerifier(new PromiscuousVerifier());
       ssh.connect(ip);
       ssh.authPassword(config.getProxyUserName(), config.getProxyPassword());
-      String target = LOAD_FILES_FOLDER + File.separator + fileName;
+      String target = LOAD_FILES_FOLDER + File.separator + folder + File.separator + fileName;
       File newFile = new File(target);
       if (newFile.exists()) {
         return newFile.getAbsolutePath();

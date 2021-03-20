@@ -2263,10 +2263,12 @@ public class StorageGroupProcessor {
     // find the position where the new file should be inserted
     for (int i = 0; i < sequenceList.size(); i++) {
       TsFileResource localFile = sequenceList.get(i);
-      if (localFile.getTsFile().getName().equals(tsfileToBeInserted.getName())) {
+      long localPartitionId = Long.parseLong(localFile.getTsFile().getParentFile().getName());
+      if (localPartitionId == newFilePartitionId
+          && localFile.getTsFile().getName().equals(tsfileToBeInserted.getName())) {
         return POS_ALREADY_EXIST;
       }
-      long localPartitionId = Long.parseLong(localFile.getTsFile().getParentFile().getName());
+
       if (i == sequenceList.size() - 1 && localFile.endTimeEmpty()
           || newFilePartitionId > localPartitionId) {
         // skip files that are in the previous partition and the last empty file, as the all data
@@ -2564,7 +2566,7 @@ public class StorageGroupProcessor {
       targetFile.getParentFile().mkdirs();
     }
     try {
-      FileUtils.moveFile(syncedTsFile, targetFile);
+      FileUtils.copyFile(syncedTsFile, targetFile);
     } catch (IOException e) {
       logger.error(
           "File renaming failed when loading tsfile. Origin: {}, Target: {}",
@@ -2582,7 +2584,7 @@ public class StorageGroupProcessor {
     File targetResourceFile =
         fsFactory.getFile(targetFile.getAbsolutePath() + TsFileResource.RESOURCE_SUFFIX);
     try {
-      FileUtils.moveFile(syncedResourceFile, targetResourceFile);
+      FileUtils.copyFile(syncedResourceFile, targetResourceFile);
     } catch (IOException e) {
       logger.error(
           "File renaming failed when loading .resource file. Origin: {}, Target: {}",

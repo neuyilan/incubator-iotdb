@@ -930,21 +930,24 @@ public class PlanExecutor implements IPlanExecutor {
 
     String remoteIp = plan.getRemoteIp();
     String remoteTsFilePath = plan.getFile().getPath();
+    // the tsfile prefix path: /sg/virtual_sg/partition/
+    String folder = FilePathUtils.getTsFilePrefixPath(remoteTsFilePath);
     String remoteTsFileResourcePath = remoteTsFilePath + TsFileResource.RESOURCE_SUFFIX;
 
     String tsFileName = FilePathUtils.getTsFileName(remoteTsFilePath);
     String tsFileResourceName = tsFileName + TsFileResource.RESOURCE_SUFFIX;
 
     // load tsfile
-    String tsFilePath = RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFilePath, tsFileName);
+    String tsFilePath =
+        RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFilePath, tsFileName, folder);
     if (tsFilePath != null) {
       // load tsfile resource
-      RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFileResourcePath, tsFileResourceName);
+      RemoteFileLoad.loadRemoteFile(remoteIp, remoteTsFileResourcePath, tsFileResourceName, folder);
 
       // try load mods
       String remoteModFileName = tsFileName + ModificationFile.FILE_SUFFIX;
       String remoteModFilePath = remoteTsFilePath + ModificationFile.FILE_SUFFIX;
-      RemoteFileLoad.loadRemoteFile(remoteIp, remoteModFilePath, remoteModFileName);
+      RemoteFileLoad.loadRemoteFile(remoteIp, remoteModFilePath, remoteModFileName, folder);
       return new File(tsFilePath);
     } else {
       return null;

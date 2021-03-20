@@ -108,6 +108,16 @@ public class FilePathUtils {
     return pathSegments[pathSegments.length - 1];
   }
 
+  public static String getTsFilePrefixPath(String tsFileAbsolutePath) {
+    String[] pathSegments = tsFileAbsolutePath.split(PATH_SPLIT_STRING);
+    int pathLength = pathSegments.length;
+    return pathSegments[pathLength - 4]
+        + File.separator
+        + pathSegments[pathLength - 3]
+        + File.separator
+        + pathSegments[pathLength - 2];
+  }
+
   public static String getTsFilePrefixPath(TsFileResource resource) {
     String[] pathSegments = splitTsFilePath(resource);
     int pathLength = pathSegments.length;
