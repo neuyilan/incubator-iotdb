@@ -274,6 +274,10 @@ public class IoTDBDescriptor {
         conf.setMemtableSizeThreshold(memTableSizeThreshold);
       }
 
+      conf.setLoadStrategy(
+          Integer.parseInt(
+              properties.getProperty("load_strategy", Integer.toString(conf.getLoadStrategy()))));
+
       conf.setAvgSeriesPointNumberThreshold(
           Integer.parseInt(
               properties.getProperty(

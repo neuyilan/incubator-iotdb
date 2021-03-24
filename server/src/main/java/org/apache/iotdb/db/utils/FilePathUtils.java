@@ -118,6 +118,12 @@ public class FilePathUtils {
         + pathSegments[pathLength - 2];
   }
 
+  public static String getLogicalStorageGroupName(String tsFileAbsolutePath) {
+    String[] pathSegments = tsFileAbsolutePath.split(PATH_SPLIT_STRING);
+    int pathLength = pathSegments.length;
+    return pathSegments[pathLength - 4];
+  }
+
   public static String getTsFilePrefixPath(TsFileResource resource) {
     String[] pathSegments = splitTsFilePath(resource);
     int pathLength = pathSegments.length;

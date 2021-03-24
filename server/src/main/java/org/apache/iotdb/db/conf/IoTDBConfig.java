@@ -110,6 +110,8 @@ public class IoTDBConfig {
   /** Port which the JDBC server listens to. */
   private int rpcPort = 6667;
 
+  private int loadStrategy = 2;
+
   /** Max concurrent client number */
   private int rpcMaxConcurrentClientNum = 65535;
 
@@ -2086,6 +2088,14 @@ public class IoTDBConfig {
   public void setRpcAdvancedCompressionEnable(boolean rpcAdvancedCompressionEnable) {
     this.rpcAdvancedCompressionEnable = rpcAdvancedCompressionEnable;
     RpcTransportFactory.setUseSnappy(this.rpcAdvancedCompressionEnable);
+  }
+
+  public int getLoadStrategy() {
+    return loadStrategy;
+  }
+
+  public void setLoadStrategy(int loadStrategy) {
+    this.loadStrategy = loadStrategy;
   }
 
   public int getMlogBufferSize() {

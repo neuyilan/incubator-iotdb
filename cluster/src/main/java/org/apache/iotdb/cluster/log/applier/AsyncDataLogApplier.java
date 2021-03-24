@@ -33,7 +33,9 @@ import org.apache.iotdb.db.qp.physical.crud.InsertMultiTabletPlan;
 import org.apache.iotdb.db.qp.physical.crud.InsertPlan;
 import org.apache.iotdb.db.qp.physical.crud.InsertRowsPlan;
 import org.apache.iotdb.db.qp.physical.sys.CreateTimeSeriesPlan;
+import org.apache.iotdb.db.qp.physical.sys.OperateFilePlan;
 import org.apache.iotdb.db.service.IoTDB;
+import org.apache.iotdb.db.utils.FilePathUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,6 +166,15 @@ public class AsyncDataLogApplier implements LogApplier {
     } else if (plan instanceof CreateTimeSeriesPlan) {
       PartialPath path = ((CreateTimeSeriesPlan) plan).getPath();
       sgPath = IoTDB.metaManager.getStorageGroupPath(path);
+    } else if (plan instanceof OperateFilePlan) {
+      // TODO
+      String remotePath = ((OperateFilePlan) plan).getFile().getAbsolutePath();
+      String sg = FilePathUtils.getLogicalStorageGroupName(remotePath);
+      try {
+        sgPath = new PartialPath(sg);
+      } catch (IllegalPathException e) {
+        logger.error("get sg path failed when load tsfile, sg={}", sg, e);
+      }
     }
     return sgPath;
   }
