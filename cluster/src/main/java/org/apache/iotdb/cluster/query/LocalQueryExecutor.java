@@ -86,8 +86,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.iotdb.session.Config.DEFAULT_FETCH_SIZE;
-
 public class LocalQueryExecutor {
 
   private static final Logger logger = LoggerFactory.getLogger(LocalQueryExecutor.class);
@@ -95,6 +93,7 @@ public class LocalQueryExecutor {
   private ClusterReaderFactory readerFactory;
   private String name;
   private ClusterQueryManager queryManager;
+  private static final int DEFAULT_FETCH_SIZE = 10000;
 
   public LocalQueryExecutor(DataGroupMember dataGroupMember) {
     this.dataGroupMember = dataGroupMember;

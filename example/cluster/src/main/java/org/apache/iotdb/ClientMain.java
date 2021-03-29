@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.iotdb.cluster;
+package org.apache.iotdb;
 
 import org.apache.iotdb.db.conf.IoTDBConstant;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;

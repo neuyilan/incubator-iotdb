@@ -34,4 +34,8 @@ public class Config {
 
   /** thrift max frame size (16384000 bytes by default), we change it to 64MB */
   public static final int DEFAULT_MAX_FRAME_SIZE = 67108864;
+
+  public static final String EMPTY_STRING = "";
+
+  public static final char PATH_SEPARATOR = '.';
 }

@@ -52,6 +52,18 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <dependency>
+          <groupId>org.apache.iotdb</groupId>
+          <artifactId>iotdb-cluster</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.iotdb</groupId>
+          <artifactId>iotdb-cluster</artifactId>
+          <version>${project.version}</version>
+          <type>test-jar</type>
+          <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

@@ -95,8 +95,8 @@ public class Session {
   protected Map<String, EndPoint> deviceIdToEndpoint;
   protected Map<EndPoint, SessionConnection> endPointToSessionConnection;
   private AtomicReference<IoTDBConnectionException> tmp = new AtomicReference<>();
-
   protected boolean enableQueryRedirection = false;
+  //  private PartitionTable partitionTable;
 
   public Session(String host, int rpcPort) {
     this(
@@ -712,6 +712,29 @@ public class Session {
     TSInsertStringRecordReq request =
         genTSInsertStringRecordReq(deviceId, time, measurements, values);
     insertRecord(deviceId, request);
+  }
+
+  /**
+   * @param storageGroup the storage group.
+   * @param deviceId the device id, if the device id is the last part of the storage group, then
+   *     user can fill null or empty(for example, root.sg.s1, the storage group is root.sg and the
+   *     device id sg, so in this case user will fill empty or null for the device id.)
+   * @param time the record time.
+   * @param measurements the measurements.
+   * @param values the values.
+   */
+  public void insertRecord(
+      String storageGroup,
+      String deviceId,
+      long time,
+      List<String> measurements,
+      List<String> values)
+      throws IoTDBConnectionException, StatementExecutionException {
+    String fullDeviceId = constructFullDevicePath(storageGroup, deviceId);
+    TSInsertStringRecordReq request =
+        genTSInsertStringRecordReq(fullDeviceId, time, measurements, values);
+
+    insertRecord(fullDeviceId, request);
   }
 
   private TSInsertStringRecordReq genTSInsertStringRecordReq(
@@ -1540,5 +1563,12 @@ public class Session {
 
   public void setEnableQueryRedirection(boolean enableQueryRedirection) {
     this.enableQueryRedirection = enableQueryRedirection;
+  }
+
+  private String constructFullDevicePath(String storageGroup, String deviceId) {
+    if (deviceId == null || Config.EMPTY_STRING.equals(deviceId)) {
+      return storageGroup;
+    }
+    return storageGroup + Config.PATH_SEPARATOR + deviceId;
   }
 }

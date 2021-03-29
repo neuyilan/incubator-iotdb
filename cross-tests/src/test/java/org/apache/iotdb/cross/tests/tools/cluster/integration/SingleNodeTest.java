@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.iotdb.cluster.integration;
+package org.apache.iotdb.cross.tests.tools.cluster.integration;
 
 import org.apache.iotdb.db.conf.IoTDBConstant;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
