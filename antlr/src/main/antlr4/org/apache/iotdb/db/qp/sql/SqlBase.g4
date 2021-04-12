@@ -20,7 +20,7 @@
 grammar SqlBase;
 
 singleStatement
-    : statement (';')? EOF
+    : EXPLAIN? statement (';')? EOF
     ;
 
 /*
@@ -1299,6 +1299,11 @@ LIKE
 TOLERANCE
     : T O L E R A N C E
     ;
+
+EXPLAIN
+    : E X P L A I N
+    ;
+
 //============================
 // End of the keywords list
 //============================
